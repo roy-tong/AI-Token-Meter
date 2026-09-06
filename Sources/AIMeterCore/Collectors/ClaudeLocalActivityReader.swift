@@ -14,6 +14,10 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
     static let maximumTotalBytes = 512 * 1_024 * 1_024
     static let maximumFileCount = 4_096
     static let maximumScanDuration: TimeInterval = 10
+    /// How many recent `message.id`s are remembered per file for duplicate
+    /// suppression. Records of one message are written consecutively, so a
+    /// small FIFO is sufficient and keeps memory bounded on huge transcripts.
+    static let maximumRememberedMessageIDs = 512
 
     private let projectsDirectoryURL: URL
     private let calendar: Calendar
@@ -203,6 +207,8 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
         let decoder = JSONDecoder()
         var line = Data()
         var discardingOversizedLine = false
+        var seenMessageIDs = Set<String>()
+        var recentMessageIDs: [String] = []
 
         while !Task.isCancelled, Date() < deadline {
             guard let chunk = try? handle.read(upToCount: 64 * 1_024),
@@ -213,7 +219,12 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
                 if byte == 0x0A {
                     if !discardingOversizedLine,
                        !line.isEmpty,
-                       let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
+                       let entry = try? decoder.decode(ClaudeLogEntry.self, from: line),
+                       !isDuplicateMessageID(
+                           entry.message?.id,
+                           seenMessageIDs: &seenMessageIDs,
+                           recentMessageIDs: &recentMessageIDs
+                       ) {
                         body(entry)
                     }
                     line.removeAll(keepingCapacity: true)
@@ -233,9 +244,39 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
            Date() < deadline,
            !discardingOversizedLine,
            !line.isEmpty,
-           let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
+           let entry = try? decoder.decode(ClaudeLogEntry.self, from: line),
+           !isDuplicateMessageID(
+               entry.message?.id,
+               seenMessageIDs: &seenMessageIDs,
+               recentMessageIDs: &recentMessageIDs
+           ) {
             body(entry)
         }
+    }
+
+    /// Claude Code writes one JSONL record per content block, and every record
+    /// of the same assistant message repeats the same `message.id` with an
+    /// identical copy of that message's `usage`. Accumulating per record
+    /// multiplies a turn's tokens by its block count, so later records of an
+    /// already-seen `message.id` are suppressed. Entries without an id are
+    /// always kept (each counts as its own turn).
+    private static func isDuplicateMessageID(
+        _ messageID: String?,
+        seenMessageIDs: inout Set<String>,
+        recentMessageIDs: inout [String]
+    ) -> Bool {
+        guard let messageID, !messageID.isEmpty else {
+            return false
+        }
+        if seenMessageIDs.contains(messageID) {
+            return true
+        }
+        seenMessageIDs.insert(messageID)
+        recentMessageIDs.append(messageID)
+        if recentMessageIDs.count > maximumRememberedMessageIDs {
+            seenMessageIDs.remove(recentMessageIDs.removeFirst())
+        }
+        return false
     }
 }
 
@@ -260,6 +301,7 @@ private struct ClaudeLogEntry: Decodable {
     }
 
     struct Message: Decodable {
+        let id: String?
         let model: String?
         let usage: Usage?
     }
