@@ -12,14 +12,14 @@ struct UsageRing: View {
                 .fill(AIMeterVisualTheme.glassBase.opacity(0.62))
                 .overlay {
                     Circle()
-                        .stroke(Color.white.opacity(0.13), lineWidth: 5)
+                        .stroke(Color.white.opacity(0.13), lineWidth: size <= 48 ? 4 : 5)
                 }
             if let ringFraction = presentation.ringFraction {
                 Circle()
                     .trim(from: 0, to: ringFraction)
                     .stroke(
                         ringStyle,
-                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        style: StrokeStyle(lineWidth: size <= 48 ? 3.5 : 5, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
             }

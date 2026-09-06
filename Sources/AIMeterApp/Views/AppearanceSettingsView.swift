@@ -7,6 +7,15 @@ struct AppearanceSettingsView: View {
     var body: some View {
         Form {
             Section("Floating meter") {
+                Picker("Floating strip size", selection: stripBinding(\.density)) {
+                    Text("Compact").tag(FloatingStripDensity.compact)
+                    Text("Comfortable").tag(FloatingStripDensity.comfortable)
+                }
+                Picker("Fold when idle", selection: stripBinding(\.foldDelay)) {
+                    ForEach(FloatingStripFoldDelay.allCases, id: \.self) { delay in
+                        Text(delay.displayName).tag(delay)
+                    }
+                }
                 Toggle(
                     "Show floating meter",
                     isOn: Binding(
@@ -75,9 +84,50 @@ struct AppearanceSettingsView: View {
                     .aiMeterFont(.caption)
                     .foregroundStyle(.secondary)
             }
+            Section("Floating strip services") {
+                ForEach(model.stripPreferences.orderedProviders, id: \.self) { provider in
+                    HStack {
+                        Toggle(provider.displayName, isOn: Binding(
+                            get: { model.stripPreferences.visibleProviders.contains(provider) },
+                            set: { model.setStripPreferences(model.stripPreferences.settingVisible(provider, visible: $0)) }
+                        ))
+                        .disabled(model.stripPreferences.visibleProviders == [provider])
+                        Button { move(provider, by: -1) } label: { Image(systemName: "arrow.up") }
+                            .disabled(model.stripPreferences.orderedProviders.first == provider)
+                            .accessibilityLabel("Move \(provider.displayName) up")
+                        Button { move(provider, by: 1) } label: { Image(systemName: "arrow.down") }
+                            .disabled(model.stripPreferences.orderedProviders.last == provider)
+                            .accessibilityLabel("Move \(provider.displayName) down")
+                    }
+                }
+                Text("Keep at least one service visible. Hidden services continue monitoring.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Restore default order") {
+                    var value = model.stripPreferences
+                    value.orderedProviders = UsageProvider.allCases
+                    value.hiddenProviders = []
+                    model.setStripPreferences(value)
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func stripBinding<T>(_ keyPath: WritableKeyPath<FloatingStripPreferences, T>) -> Binding<T> {
+        Binding(get: { model.stripPreferences[keyPath: keyPath] }, set: {
+            var value = model.stripPreferences
+            value[keyPath: keyPath] = $0
+            model.setStripPreferences(value)
+        })
+    }
+
+    private func move(_ provider: UsageProvider, by offset: Int) {
+        var value = model.stripPreferences
+        guard let index = value.orderedProviders.firstIndex(of: provider),
+              value.orderedProviders.indices.contains(index + offset) else { return }
+        value.orderedProviders.swapAt(index, index + offset)
+        model.setStripPreferences(value)
     }
 }
 

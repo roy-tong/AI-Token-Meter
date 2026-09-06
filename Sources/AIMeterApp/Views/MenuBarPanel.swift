@@ -84,6 +84,10 @@ struct MenuBarPanel: View {
 
     private var footer: some View {
         HStack {
+            if model.stripPreferences.hiddenUntil != nil || !model.showFloatingStrip {
+                Button("Show Floating Strip Now") { model.setFloatingStripVisible(true) }
+                    .buttonStyle(.borderless)
+            }
             if let date = model.lastUpdatedAt {
                 Text("Updated \(date.formatted(date: .omitted, time: .shortened))")
                     .aiMeterFont(.caption2)

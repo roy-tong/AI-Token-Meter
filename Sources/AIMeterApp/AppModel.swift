@@ -54,6 +54,7 @@ final class AppModel {
     private(set) var settingsMessageKind: SettingsMessageKind?
     private(set) var displayFontChoice: DisplayFontChoice
     private(set) var floatingStripPosition: FloatingStripPosition
+    private(set) var stripPreferences: FloatingStripPreferences
 
     var showFloatingStrip: Bool
     var notificationsEnabled: Bool
@@ -62,6 +63,7 @@ final class AppModel {
 
     var floatingVisibilityHandler: ((Bool) -> Void)?
     var floatingPositionHandler: (() -> Void)?
+    var floatingAppearanceHandler: (() -> Void)?
     var notificationHandler: (([ThresholdEvent]) -> Void)?
     var notificationPermissionHandler: (() -> Void)?
 
@@ -92,6 +94,7 @@ final class AppModel {
         self.displayFontChoice = self.displayFontPreferenceStore.load()
         self.floatingStripPositionStore = FloatingStripPositionStore(defaults: defaults)
         self.floatingStripPosition = self.floatingStripPositionStore.load()
+        self.stripPreferences = FloatingStripPreferencesStore(defaults: defaults).load()
         self.widgetSnapshotPublisher = widgetSnapshotPublisher
         let deepSeekCredentialManager = DeepSeekCredentialManager(secretStore: secretStore)
         let accountCoordinator = ServiceAccountCoordinator(
@@ -233,9 +236,27 @@ final class AppModel {
     }
 
     func setFloatingStripVisible(_ isVisible: Bool) {
+        if isVisible {
+            stripPreferences.hiddenUntil = nil
+            FloatingStripPreferencesStore(defaults: defaults).save(stripPreferences)
+        }
         showFloatingStrip = isVisible
         defaults.set(isVisible, forKey: DefaultsKey.showFloatingStrip)
         floatingVisibilityHandler?(isVisible)
+    }
+
+    func setStripPreferences(_ value: FloatingStripPreferences) {
+        var value = value
+        value.normalize()
+        stripPreferences = value
+        FloatingStripPreferencesStore(defaults: defaults).save(value)
+        floatingAppearanceHandler?()
+    }
+
+    func hideStripForOneHour() {
+        var value = stripPreferences
+        value.hiddenUntil = Date().timeIntervalSince1970 + 3600
+        setStripPreferences(value)
     }
 
     func setFloatingStripEdgePreference(_ preference: FloatingStripEdgePreference) {

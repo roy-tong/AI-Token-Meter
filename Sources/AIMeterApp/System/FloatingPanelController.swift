@@ -56,7 +56,7 @@ enum FloatingStripPositionPersistencePolicy {
 }
 
 @MainActor
-final class FloatingPanelController {
+final class FloatingPanelController: NSObject, NSMenuDelegate {
     private let model: AppModel
     private let session = FloatingDetailSession()
     private let displayState: FloatingStripDisplayState
@@ -70,6 +70,10 @@ final class FloatingPanelController {
     private var activeSpaceObserver: ActiveSpaceChangeObserver?
     private var voiceOverObservation: NSKeyValueObservation?
     private var detailInteraction = FloatingDetailInteractionState()
+    private var foldState = FloatingStripFoldState()
+    private var foldTimer: Timer?
+    private var menuIsOpen = false
+    private var temporarilyHidden = false
 
     init(model: AppModel) {
         self.model = model
@@ -79,6 +83,19 @@ final class FloatingPanelController {
         )
         stripPanel = Self.makePanel(nonactivating: true, role: .strip)
         detailPanel = Self.makePanel(nonactivating: false, role: .detail)
+        super.init()
+        model.floatingAppearanceHandler = { [weak self] in
+            guard let self else { return }
+            if let selected = session.selectedProvider,
+               !model.stripPreferences.visibleProviders.contains(selected) { session.dismiss() }
+            foldState.update(now: ProcessInfo.processInfo.systemUptime, delay: 0, locked: true)
+            displayState.isFolded = false
+            positionPanels()
+            tickFold()
+        }
+        foldTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tickFold() }
+        }
 
         let stripHost = NSHostingView(rootView: FloatingStripView(
             model: model,
@@ -148,6 +165,7 @@ final class FloatingPanelController {
 
     isolated deinit {
         session.shutdown()
+        foldTimer?.invalidate()
         activeSpaceObserver?.invalidate()
         if let localMouseMonitor {
             NSEvent.removeMonitor(localMouseMonitor)
@@ -161,6 +179,7 @@ final class FloatingPanelController {
     }
 
     func show() {
+        guard !model.stripPreferences.isTemporarilyHidden(now: Date().timeIntervalSince1970) else { return }
         positionPanels()
         stripPanel.orderFrontRegardless()
         if session.selectedProvider != nil {
@@ -230,6 +249,7 @@ final class FloatingPanelController {
     }
 
     private func handleMonitoredClick(_ event: NSEvent) {
+        if event.type == .rightMouseDown, event.window === stripPanel { return }
         guard let selectionID = session.selectionID else { return }
         let request = FloatingPanelDismissalRequest(
             screenPoint: Self.screenPoint(for: event),
@@ -241,13 +261,20 @@ final class FloatingPanelController {
 
     private func handleLocalPointerEvent(_ event: NSEvent) -> NSEvent? {
         switch event.type {
+        case .rightMouseDown:
+            guard event.window === stripPanel else { return event }
+            openContextMenu(event)
+            return nil
         case .leftMouseDown:
             guard event.window === stripPanel else { return event }
+            guard !displayState.isFolded else { tickFold(forceExpanded: true); return nil }
             guard pointerDragState.begin(
                 windowPoint: event.locationInWindow,
                 screenPoint: Self.screenPoint(for: event),
                 panelSize: stripPanel.frame.size,
-                edge: displayState.resolvedEdge
+                edge: displayState.resolvedEdge,
+                density: model.stripPreferences.density,
+                providerCount: model.stripPreferences.visibleProviders.count
             ) else { return event }
             displayState.isDragging = true
             NSCursor.closedHand.set()
@@ -303,7 +330,7 @@ final class FloatingPanelController {
         displayState.normalizedCenterY = context.normalizedCenterY
         let stripFrame = FloatingStripLayout.stripFrame(
             in: screen.visibleFrame,
-            size: Self.stripSize,
+            size: stripSize,
             edge: edge,
             normalizedCenterY: context.normalizedCenterY
         )
@@ -369,7 +396,7 @@ final class FloatingPanelController {
         displayState.normalizedCenterY = placement.normalizedCenterY
         let finalFrame = FloatingStripLayout.stripFrame(
             in: screen.visibleFrame,
-            size: Self.stripSize,
+            size: stripSize,
             edge: placement.edge,
             normalizedCenterY: placement.normalizedCenterY
         )
@@ -476,7 +503,7 @@ final class FloatingPanelController {
 
     private func applyDetailInteractionState() {
         session.setAutoHidePaused(
-            detailInteraction.shouldPauseAutoHide,
+            detailInteraction.shouldPauseAutoHide || menuIsOpen,
             restartAfter: .seconds(model.detailAutoHideSeconds)
         )
     }
@@ -504,7 +531,58 @@ final class FloatingPanelController {
         positionPanels()
     }
 
-    private static let stripSize = CGSize(width: 108, height: 356)
+    private var stripSize: CGSize {
+        if displayState.isFolded { return CGSize(width: 12, height: 96) }
+        let value = model.stripPreferences
+        return CGSize(width: value.density.width, height: value.density.height(providerCount: value.visibleProviders.count))
+    }
+
+    private func tickFold(forceExpanded: Bool = false) {
+        let hidden = model.stripPreferences.isTemporarilyHidden(now: Date().timeIntervalSince1970)
+        if hidden {
+            if !temporarilyHidden { hide(); temporarilyHidden = true }
+            return
+        }
+        if temporarilyHidden {
+            temporarilyHidden = false
+            if model.showFloatingStrip { show() }
+        }
+        guard model.showFloatingStrip, stripPanel.isVisible else { return }
+        let point = NSEvent.mouseLocation
+        let locked = forceExpanded || stripPanel.frame.contains(point)
+            || session.selectedProvider != nil || displayState.isDragging || menuIsOpen
+            || stripPanel.isKeyWindow || NSWorkspace.shared.isVoiceOverEnabled
+            || model.isRefreshing || model.serviceAccounts.values.contains { $0.connectionState == .checking }
+        foldState.update(now: ProcessInfo.processInfo.systemUptime,
+                         delay: Double(model.stripPreferences.foldDelay.rawValue), locked: locked)
+        if displayState.isFolded != foldState.isFolded {
+            displayState.isFolded = foldState.isFolded
+            positionPanels()
+        }
+    }
+
+    private func openContextMenu(_ event: NSEvent) {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+        for (title, action) in [("Refresh now", #selector(refreshFromMenu)),
+                                ("Hide for 1 hour", #selector(hideFromMenu)),
+                                ("Settings…", #selector(settingsFromMenu)),
+                                ("Quit AI Token Meter", #selector(quitFromMenu))] {
+            if title == "Settings…" { menu.addItem(.separator()) }
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.isEnabled = title != "Refresh now" || !model.isRefreshing
+            menu.addItem(item)
+        }
+        if let view = stripPanel.contentView { NSMenu.popUpContextMenu(menu, with: event, for: view) }
+    }
+    func menuWillOpen(_ menu: NSMenu) { menuIsOpen = true; applyDetailInteractionState(); tickFold(forceExpanded: true) }
+    func menuDidClose(_ menu: NSMenu) { menuIsOpen = false; applyDetailInteractionState(); tickFold() }
+    @objc private func refreshFromMenu() { Task { await model.refresh() } }
+    @objc private func hideFromMenu() { model.hideStripForOneHour() }
+    @objc private func settingsFromMenu() { NotificationCenter.default.post(name: .init("AIMeterOpenAppearance"), object: nil) }
+    @objc private func quitFromMenu() { NSApp.terminate(nil) }
 
     private static func makePanel(
         nonactivating: Bool,

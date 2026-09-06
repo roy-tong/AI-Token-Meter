@@ -34,19 +34,25 @@ enum FloatingStripBackgroundPresentation {
 
 struct FloatingStripSurface: View {
     let edge: FloatingStripEdge
+    var density: FloatingStripDensity
+    var providerCount: Int
     private let backgroundImage: NSImage?
 
     init(
         edge: FloatingStripEdge,
+        density: FloatingStripDensity = .comfortable,
+        providerCount: Int = 3,
         backgroundImage: NSImage? = FloatingStripBackgroundAsset.defaultImage
     ) {
         self.edge = edge
+        self.density = density
+        self.providerCount = providerCount
         self.backgroundImage = backgroundImage
     }
 
     var body: some View {
         ZStack {
-            FloatingStripShape(edge: edge)
+            FloatingStripShape(edge: edge, density: density, providerCount: providerCount)
                 .fill(AIMeterVisualTheme.floatingGlass)
 
             if let backgroundImage {
@@ -56,11 +62,11 @@ struct FloatingStripSurface: View {
                     .scaledToFill()
                     .scaleEffect(x: scale.width, y: scale.height, anchor: .center)
                     .overlay {
-                        Color.black.opacity(FloatingStripBackgroundPresentation.scrimOpacity)
+                        Color.black.opacity(density == .compact ? 0.46 : FloatingStripBackgroundPresentation.scrimOpacity)
                     }
                     .accessibilityHidden(true)
             }
         }
-        .clipShape(FloatingStripShape(edge: edge))
+        .clipShape(FloatingStripShape(edge: edge, density: density, providerCount: providerCount))
     }
 }
