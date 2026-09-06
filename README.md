@@ -13,9 +13,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
-> 项目状态：当前双平台 Preview 为 `0.3.0-preview.3`（build `10`），最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 的自动化门禁已全部通过，但尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
-
-> `0.3.0`（build `11`）正在准备双平台更新发布；公开状态以[发布记录](docs/development/2026-09-06-v0.3.0-release.md)为准。完整Windows真机验收和Widget证书仍单独追踪。
+> 当前双平台版本：`0.3.0`（macOS build `11`），通过稳定更新通道交付；旧 Windows Preview 更新源也支持升级到本版。[发布记录](docs/development/2026-09-06-v0.3.0-release.md)保留校验与交付证据。Windows 全部交互式真机验收和 Widget 证书仍单独追踪；Windows 安装器尚无 Authenticode 发布者签名。
 
 ## Screenshots
 
@@ -25,7 +23,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
-开发中：更紧凑的浮动条、可选闲置折叠、服务显示/排序和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)，已发布安装包以Release版本为准。
+`0.3.0` 新增：默认 Compact 紧凑浮动条、可选闲置折叠、服务显示/排序、右键快捷菜单和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)。
 
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
 - 菜单栏使用 18×18pt 单色 Quantum Dial：断环进度和指针动态显示三项服务中的最高已用比例，旁边保留精确百分比；无有效数据时显示中性仪表与 `—`。
@@ -46,7 +44,7 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - 点击屏幕空白处关闭详情；详情可在 3、5、8、15 或 30 秒后自动收起，悬停、键盘焦点、VoiceOver 与登录操作期间暂停倒计时。
 - 每 5 分钟自动刷新，支持手动刷新、离线缓存和 70% / 90% 阈值通知。
 - DeepSeek API Key 存入 macOS Keychain；替换时先经官方余额接口验证，失败会保留旧 Key，设置页只显示最后四位遮罩。
-- Settings → About 支持手动检查 GitHub 新版本；发现更高稳定版本后，可由用户明确点击更新，Sparkle 会验证 EdDSA 签名后替换 App 并重新启动。应用不会在后台检查，也不会静默安装。
+- Settings → About 支持手动检查 GitHub 新版本；发现更高版本后，由用户明确点击更新，macOS Sparkle 验证 EdDSA、Windows Tauri 验证 minisign 签名后安装。应用不会静默安装。
 
 ## 数据来源一览
 
@@ -74,18 +72,18 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 - Windows 11 x64；需要 Microsoft Edge WebView2 Runtime（安装器可引导下载）。
 - Claude Code 与 OpenAI Codex 可使用 Windows 原生安装，也可从 WSL 发行版发现；应用明确显示实际来源和 CLI 版本。
 - DeepSeek API Key 保存在当前 Windows 用户的 Credential Manager；30 天历史使用应用独立的 WebView2 用户数据目录。
-- Windows Widget 不在首个 Preview 范围内。当前无 Authenticode 证书，Preview 安装器可能出现 SmartScreen 提示；只应从本项目 GitHub Release 下载并核对 SHA-256。
+- Windows Widget 尚未实现。当前无 Authenticode 证书，安装器可能出现 SmartScreen 提示；只应从本项目 GitHub Release 下载并核对 SHA-256。
 
 ## 下载与安装
 
-**[Download v0.3.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0)** from GitHub Releases（发布完成后可下载）：
+**[Download v0.3.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0)** from GitHub Releases：
 
 - macOS：下载 `AI-Token-Meter-0.3.0-macOS-arm64.zip` 与同名 `.sha256`；
 - Windows：下载 `AI-Token-Meter-0.3.0-windows-x64-setup.exe` 与同名 `.sha256`。
 
-`0.3.0-preview.3` 明确包含 `REQ-20260904-006` 的 Windows DeepSeek 显式同步、窗口生命周期、紧凑字号与字体下拉可读性修复。
+已经安装的 macOS `0.2.x` / `0.3.0-preview.x` 和 Windows Preview 均可在 Settings → About 检查并升级到 `0.3.0`；更新后继续使用稳定通道。无需手工安装中间版本。本版包含此前 Windows DeepSeek 同步、窗口生命周期、紧凑字号和字体下拉修复。
 
-预览版用于提前验证 Windows 与双平台同步发布。需要稳定版时仍可使用 [v0.2.2](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.2.2) 的 macOS 包。Windows Preview 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
+Windows 安装器未取得 Authenticode 签名，Microsoft Defender SmartScreen 可能显示 unknown publisher；请只从本仓库 Release 下载并核对 SHA-256。应用内 Windows 更新另由 Tauri minisign 签名验证保护。
 
 1. 完全退出已有的 AI Token Meter。
 2. 解压 ZIP，并把 `AI Token Meter.app` 移到 `/Applications`。
@@ -232,7 +230,7 @@ codesign --verify --deep --strict "dist/AI Token Meter.app"
 
 ## 版本与许可
 
-- 当前双平台 Preview：`0.3.0-preview.3`（build `10`）；最新稳定版本：`0.2.2`（build `6`，仅 macOS）。
+- 当前双平台版本：`0.3.0`（macOS build `11`），macOS 与 Windows 使用稳定更新通道。
 - 完整变更：见 [CHANGELOG.md](CHANGELOG.md)。
 - Git 关键节点：见 [提交历史](docs/development/commit-history.md)。
 - **Author: Miller**

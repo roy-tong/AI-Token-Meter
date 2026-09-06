@@ -15,7 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 进行中 | 2026-09-06 | 核对稳定macOS与Windows Preview更新源，准备同版本构建与公开发布；真实桌面验收及间歇性测试问题不冒充解决 | 用户明确发布授权；发布证据完成后补记 |
+| REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 已完成 | 2026-09-06 | 2026-09-06 完成；稳定 macOS、Windows stable 与旧 Preview 更新源均指向 0.3.0；旧 Mac Preview 实际检查发现新版。Windows 真机原位升级仍按既有验收项追踪 | [发布记录](development/2026-09-06-v0.3.0-release.md) · [Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0) · Tag `bb215c3` · appcast `f9a1f83` · [成功 workflow](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34035797098) |
 | REQ-20260901-001 | 服务认证 | Settings 始终显示 Claude、Codex 当前账户和登录按钮；支持官方 CLI 重新登录；DeepSeek 显示遮罩 Key，并安全替换 API Key | 高 | 已完成 | 2026-09-01 | 稳定签名发布后重录一次旧 DeepSeek Key，可解除 ad-hoc CDHash 变化造成的钥匙串访问限制 | [设计规格](design/specifications/2026-09-01-service-account-relogin-design.md)、[实施计划](design/implementation-plans/2026-09-01-service-account-relogin.md)、[开发与验收记录](development/2026-09-01-service-account-relogin.md)、`f95c6cf`–`bfc7412`、合并 `cd77e25` |
 | REQ-20260901-002 | 项目治理 | 建立项目级“待完成需求”列表；以后每条新需求先登记，可分类、标记完成/待确认，并在当前任务结束后继续读取处理 | 高 | 已完成 | 2026-09-01 | 后续所有新需求继续遵循本机制 | 本文件、`AGENTS.md`、`641f74c` |
 | REQ-20260901-003 | Widget | Apple Development 证书、Widget 安装、Gallery 与 Small/Medium/Large 真实桌面验收 | 中 | 已延期 | 2026-09-01 | 用户明确要求先放一放；取得证书且用户恢复该事项后继续 | [Widget 开发日志](development/2026-09-01-widgetkit-extension.md) |
@@ -56,7 +56,7 @@
 | REQ-20260904-007 | 更新交付确认 | 核对其他机器能否通过应用内更新直接取得刚合入 `main` 的 Windows DeepSeek、窗口生命周期和紧凑界面修复，并明确稳定版与 Preview 的实际可更新边界 | 中 | 已完成 | 2026-09-04 | 无；Windows Preview 机器现可检查并安装 `0.3.0-preview.3`；macOS 稳定通道仍保持 `0.2.2`，macOS Preview 需手动下载 | 稳定 `appcast.xml` 当前为 `0.2.2` · 最新公开 Preview/Tag 为 [`0.3.0-preview.3`](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.3) · [固定 Windows Preview feed](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/windows-preview-feed) |
 | REQ-20260904-008 | 双平台 Preview 发布 | 将当前 `main` 中已完成的 Windows DeepSeek、窗口生命周期与紧凑界面修复发布为新的 macOS/Windows 同版本 Preview；提供可下载 Release、SHA-256、签名更新清单，并验证其他机器可发现新版 | 高 | 已完成 | 2026-09-04 | 无；Windows 11 的真实交互验收继续保留在 `REQ-20260904-006`，macOS Preview 按既定边界手动安装 | [Release notes](releases/v0.3.0-preview.3.md) · [发布记录](development/2026-09-04-v0.3.0-preview.3-release.md) · 发布/Tag `dac10b9` · [Release workflow 33887131319](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33887131319) · [公开 Release](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.3) · [固定 Windows Preview feed](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/windows-preview-feed) |
 | REQ-20260906-001 | 竞品研究与视觉方向 | 调研 CodeNotch 可供 AI Token Meter 借鉴的视觉密度、信息层级、交互和功能，重点解释其“更瘦但仍清晰”的原因，并提出适合本项目的优先级建议 | 中 | 已完成 | 2026-09-06 | 无；本轮仅完成研究与建议，不代表紧凑模式、闲置折叠或新功能已经开发 | [CodeNotch](https://github.com/vinzdg/codenotch) · [竞品研究](development/2026-09-06-codenotch-competitive-review.md) · Git `ef84950` |
-| REQ-20260906-002 | 紧凑浮动条与渐进式交互 | 按 CodeNotch 研究中的推荐方向改进 AI Token Meter：双平台增加 Compact/Comfortable 密度并默认使用 Compact、保留深海背景和 Logo-only；增加可选闲置折叠、可验证的 Refreshing/Waiting/Idle 双轨状态、Provider 显示与排序、统一数据可信度/新鲜度、持久化刷新退避和浮动条右键快捷菜单 | 高 | 受环境限制 | 2026-09-06 | 代码、双平台CI、构建与文档已完成，PR #7 已合入main；尚未发布。剩余Windows11多DPI/读屏/指针/多屏真实交互需对应设备验收 | [竞品研究](development/2026-09-06-codenotch-competitive-review.md) · [Compact/折叠规格](design/specifications/2026-09-06-compact-floating-strip-and-idle-fold-design.md) · [Provider/菜单规格](design/specifications/2026-09-06-floating-strip-provider-controls-design.md) · [状态/退避规格](design/specifications/2026-09-06-provider-state-and-refresh-resilience-design.md) · 规格 Git `7c85d5e` · macOS检查点 `9c30b45` · 合并 `c67112e` · [开发记录](development/2026-09-06-compact-progressive-strip.md) |
+| REQ-20260906-002 | 紧凑浮动条与渐进式交互 | 按 CodeNotch 研究中的推荐方向改进 AI Token Meter：双平台增加 Compact/Comfortable 密度并默认使用 Compact、保留深海背景和 Logo-only；增加可选闲置折叠、可验证的 Refreshing/Waiting/Idle 双轨状态、Provider 显示与排序、统一数据可信度/新鲜度、持久化刷新退避和浮动条右键快捷菜单 | 高 | 受环境限制 | 2026-09-06 | 代码、双平台CI、构建与文档已完成，PR #7 已合入main，已随 0.3.0 发布。剩余Windows11多DPI/读屏/指针/多屏真实交互需对应设备验收 | [竞品研究](development/2026-09-06-codenotch-competitive-review.md) · [Compact/折叠规格](design/specifications/2026-09-06-compact-floating-strip-and-idle-fold-design.md) · [Provider/菜单规格](design/specifications/2026-09-06-floating-strip-provider-controls-design.md) · [状态/退避规格](design/specifications/2026-09-06-provider-state-and-refresh-resilience-design.md) · 规格 Git `7c85d5e` · macOS检查点 `9c30b45` · 合并 `c67112e` · [开发记录](development/2026-09-06-compact-progressive-strip.md) |
 | REQ-20260906-003 | CI可靠性 | 追踪偶发的macOS PTY父进程退出超时/并发输出缺失、CLI超时测试PID读取失败及Windows ConPTY采集超时；不删除断言或跳过测试 | 低 | 受环境限制 | 2026-09-06 | 最终双平台CI全绿；合并后首轮复测出现CLI时序失败，原样完整复跑403项通过，尚无法稳定复现；保留原失败日志，后续同类失败先增加脱敏进程时序诊断再定位，不能宣称根因已修复 | [开发记录](development/2026-09-06-compact-progressive-strip.md) · 失败CI `34033000263`、`34033000265` |
 
 ## 分类索引
@@ -145,6 +145,7 @@
 
 ### 更新与发布状态
 
+- `REQ-20260906-004`：0.3.0 双平台公开资产与稳定/旧 Preview 更新源同步，旧版可在应用内发现新版。
 - `REQ-20260904-007`：区分源码已合并、公开 Release 已发布和应用内更新源已更新，避免其他机器误以为能立即取得尚未发布的修复。
 - `REQ-20260904-008`：把 `main` 中尚未交付的修复制作为下一版双平台 Preview，并验证公开下载和应用内更新链路。
 
@@ -152,6 +153,8 @@
 
 | 日期 | ID | 变化 | 说明 |
 | --- | --- | --- | --- |
+| 2026-09-06 | REQ-20260906-004 | 进行中 → 已完成 | `v0.3.0` / build 11 公开，tag `bb215c3`、workflow `34035797098` 全绿；公网重下两包 SHA-256 与签名通过，稳定 appcast 提交 `f9a1f83`，两 Windows feed 内容一致。旧 Mac Preview 实际检查显示 0.3.0 可用；未代用户安装。 |
+| 2026-09-06 | REQ-20260906-004 | 新建 → 进行中 | 用户要求发布，便于其他机器直接更新；选择双平台稳定 0.3.0/build 11，沿用已有签名公钥，兼容旧 Windows Preview 通道。 |
 | 2026-09-06 | REQ-20260906-002 | 进行中 → 受环境限制 | 功能、403项Swift/51项前端/179项宿主Rust回归、Windows原生CI与NSIS构建、macOS Release资源及签名校验完成，独立复审无Critical/Important，PR #7合并 `c67112e`；真实Windows桌面交互验收仍保留，未发布新版。 |
 | 2026-09-06 | REQ-20260906-003 | 新建 → 受环境限制 | 登记间歇性终端测试失败和已做复查；最终CI原断言通过，本机PTY连续三次通过，但缺少稳定复现，保留为可靠性追踪项。 |
 | 2026-09-06 | REQ-20260906-002 | 待用户确认 → 进行中 | 用户确认三份规格后，按推荐直接实施并保存阶段Git检查点。 |

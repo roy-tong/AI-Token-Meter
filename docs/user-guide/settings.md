@@ -4,7 +4,7 @@
 
 ## Appearance
 
-### 紧凑浮动条（开发分支，尚未发布）
+### 紧凑浮动条（0.3.0 起）
 
 - **Floating strip size**：默认 Compact（78×286），可选 Comfortable（108×356）；隐藏一项时高度自动缩短。原背景和三个Logo保留，切换不改变保存的显示器与位置中心。
 - **Fold when idle**：默认 Never，可选5秒或15秒。折叠成窄把手，移入指针即可展开。操作详情、拖动、刷新和读屏期间不自动折叠。
@@ -20,7 +20,7 @@ Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Setti
 
 Windows Preview 不包含桌面 Widget，因此 Windows Settings 不显示 Widget 配置，也不会伪装存在该能力。`0.3.0-preview.1` 起，Windows 浮岛使用与 macOS 相同的平滑 Bezier 轮廓，深海背景连续覆盖上下肩部；`0.3.0-preview.2` 起，Windows 主程序使用 GUI subsystem，启动时不再额外打开终端窗口；`0.3.0-preview.3` 起，Windows Settings 使用紧凑系统字体并保证字体下拉白底深字可读。这些都不是可单独切换的外观选项。
 
-当前未发布的 Windows 修复分支把 Provider 详情和 Settings 调整为独立紧凑密度：Settings 继续使用 Segoe UI 系统字体，Display font 的原生下拉明确采用白底深色文字。该变化不修改 macOS 的字号、间距或控件配色；正式可安装版本仍以 Release Notes 为准。
+Windows Provider 详情和 Settings 使用独立紧凑密度：Settings 继续使用 Segoe UI 系统字体，Display font 的原生下拉明确采用白底深色文字。该变化不修改 macOS 的字号、间距或控件配色。
 
 ### Show floating meter
 

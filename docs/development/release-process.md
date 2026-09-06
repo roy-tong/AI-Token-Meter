@@ -8,7 +8,7 @@ AI Token Meter 使用语义化版本思路：
 - MINOR：向后兼容的新功能；
 - PATCH：向后兼容的问题修复。
 
-当前稳定版本为 `0.2.2`、build `6`，稳定 tag 为 `v0.2.2`；当前双平台 Preview 为 `0.3.0-preview.3`、build `10`。稳定版的 macOS ZIP、SHA-256、appcast、EdDSA、公开重新下载、最终 CI 与隔离真实更新均已验证；它没有 Windows 正式资产。双平台 Preview 从 `0.3.0-preview.0` 开始，macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。`0.3.0-preview.3` 明确交付 `REQ-20260904-006` 的 Windows DeepSeek 窗口生命周期和紧凑密度修复；真机验收状态继续独立记录，不因发布而自动变为完成。
+当前稳定通道版本为 `0.3.0`、macOS build `11`，tag 为 `v0.3.0`；macOS 与 Windows 使用同一个 `VERSION`、tag 和 GitHub Release。稳定 appcast、Windows stable latest.json 与旧 Windows Preview feed 同步推进，避免旧机器无法发现更新。公开资产与签名验证见[本版发布记录](2026-09-06-v0.3.0-release.md)。真机验收和代码签名证书状态继续独立记录，不因稳定通道发布而自动变为完成。
 
 ## 发布前检查清单
 
@@ -83,7 +83,7 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 
 默认 `auto` 只有在同时检测到身份和 Team ID 时才嵌入 `AITokenMeterWidget.appex`；显式 `1` 在条件不足时必须失败。构建计算 `${TEAM_ID}.com.millerpan.AIMeter`，写入双方 entitlements 与 Bundle 元数据，先签扩展再签主应用。不得把 ad-hoc 签名 Widget 当成成功产物。
 
-当前 GitHub 预览发行允许提供明确标注为 ad-hoc、未公证的 Apple Silicon ZIP，用户需要通过 Finder 右键“打开”。要升级为无需该提示的正式 macOS 发行渠道，还必须补充：
+当前 GitHub 发行提供明确标注为 ad-hoc、未公证的 Apple Silicon ZIP，首次安装可能需要通过 Finder 右键“打开”。稳定更新通道不代表已经取得发布者证书。要升级为无需该提示的 macOS 发行渠道，还必须补充：
 
 - universal binary（若计划支持 Intel）；
 - Hardened Runtime；
@@ -92,7 +92,7 @@ scripts/verify-widget-bundle.sh "dist/AI Token Meter.app"
 - 可验证的发布校验和（GitHub 预览发行已经要求）；
 - 清晰的软件许可证（当前为 MIT）。
 
-Windows NSIS 使用 current-user 安装模式与 WebView2 download bootstrapper。首个 Preview 可没有 Authenticode，但必须附 SHA-256 并说明 SmartScreen；应用内更新仍必须有 Tauri minisign 签名。Authenticode 与 updater signature 解决不同问题，文档不得混称“已签名发布者”。
+Windows NSIS 使用 current-user 安装模式与 WebView2 download bootstrapper。当前尚无 Authenticode，必须附 SHA-256 并说明 SmartScreen；应用内更新必须有 Tauri minisign 签名。Authenticode 与 updater signature 解决不同问题，文档不得混称“已签名发布者”。
 
 ### 生成签名更新资产
 
@@ -102,7 +102,7 @@ Sparkle 固定为 `2.9.4`。生产私钥只保存在维护者 macOS Keychain 的
 
 ```bash
 SPARKLE_TOOLS_DIR="/path/to/Sparkle/bin" \
-scripts/package-update-release.sh 0.2.2 6
+scripts/package-update-release.sh 0.3.0 11
 ```
 
 入口按固定顺序执行：完整测试与文档门禁 → 公开安全扫描 → Release 构建 → Sparkle Bundle 验证 → 最终 ZIP → SHA-256 → 官方工具生成 appcast → 独立 enclosure/EdDSA/篡改验证。ZIP 一旦用于生成 appcast 就不得重建；任何字节变化都必须重新生成 enclosure。
@@ -123,7 +123,7 @@ macOS Sparkle 私钥继续只保存在维护者 Keychain；Windows Tauri 私钥�
 
 ```bash
 SPARKLE_TOOLS_DIR="/absolute/path/to/Sparkle/bin" \
-scripts/package-cross-platform-release.sh X.Y.Z-preview.N BUILD
+scripts/package-cross-platform-release.sh X.Y.Z BUILD
 ```
 
 该入口按以下顺序工作：
