@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+暂无。
+
+## 0.3.0 - 2026-09-06
+
+### Changed
+
+- 双平台同版本更新：macOS稳定appcast、Windows稳定与旧Preview更新源均指向本版；原配置和签名验证公钥不变。
+- 发布通道不代表全部Windows真机项目已验收；仍无Authenticode，macOS仍为ad-hoc signed、not notarized，Widget证书继续延期。
+
 ### Added
 
 - 双平台 Compact/Comfortable 浮动条密度、可选闲置折叠、服务显示排序与右键快捷菜单；保留原深海背景与品牌Logo。

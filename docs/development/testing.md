@@ -6,9 +6,9 @@
 bash scripts/test.sh
 ```
 
-当前基线为 **387 个测试、72 个测试组全部通过**。默认完整验证会先运行 375 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
+当前基线为 **403 个测试、75 个测试组全部通过**。默认完整验证会先运行 391 项普通测试，再从独立测试进程运行 12 项 PTY 系统资源测试，避免 CI runner 的全套并发负载干扰伪终端时序；并发 PTY fixture 只使用 Shell 内建读取，不在 32 路命令之上额外派生管道进程。传入 `--filter` 等参数时仍只运行调用者指定的单次测试命令。Keychain 隔离读写、已安装 Claude Code auth 状态、已安装 Claude Code CLI 额度快照和已安装 OpenAI Codex CLI 额度快照是环境门控检查；当前环境未启用或不具备相应条件时按设计跳过。
 
-以上数字是当前 macOS 基线；Windows 使用独立 Vitest/Rust 基线，不能把双方项目数相加后写成单一“通过率”。当前 Windows 跨平台基线为 43 项前端测试、12 项密度进程生命周期测试和 169 项 Rust 测试，严格 Clippy、production 前端构建及 production preview Chrome 计算样式门禁通过；PR #6 的 [Windows CI 33878105470](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105470) 已复验 Windows-only 分支、Tauri 壳、PE GUI subsystem 与 NSIS，[macOS CI 33878105480](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/33878105480) 同时通过。
+以上数字是当前macOS基线，不与Windows相加计算通过率。紧凑浮动条合并基线：Windows前端51项、密度进程生命周期12项、宿主Rust179项；[Windows CI 34033447184](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34033447184)还覆盖Windows-only、ConPTY、Tauri、NSIS和GUI subsystem。[macOS CI 34033447189](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34033447189)全绿。间歇性终端测试失败保留在REQ-20260906-003，不能把通过复跑写成根因已修复。
 
 普通测试覆盖：
 

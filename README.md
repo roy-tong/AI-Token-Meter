@@ -4,8 +4,8 @@
 ![Windows 11](https://img.shields.io/badge/Windows-11%20x64-0078D4?logo=windows11&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
-![Version 0.3.0-preview.3](https://img.shields.io/badge/version-0.3.0--preview.3-f59e0b)
-![Tests 387](https://img.shields.io/badge/tests-387%20passed-2ea44f)
+![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-3b82f6)
+![Tests 403](https://img.shields.io/badge/tests-403%20passed-2ea44f)
 [![CI](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml/badge.svg)](https://github.com/sljzdotcom/AI-Token-Meter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -14,6 +14,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 > **English:** A privacy-minded macOS and Windows usage meter for Claude Code, OpenAI Codex, and DeepSeek. Credentials remain with the official CLIs, macOS Keychain, or Windows Credential Manager. Both apps share the same quota semantics and are open source under the MIT License.
 
 > 项目状态：当前双平台 Preview 为 `0.3.0-preview.3`（build `10`），最新稳定版仍为仅含 macOS 的 `0.2.2`。Windows Preview 的自动化门禁已全部通过，但尚未完成全部交互式真机验收，安装器也未取得 Authenticode 发布者签名。
+
+> `0.3.0`（build `11`）正在准备双平台更新发布；公开状态以[发布记录](docs/development/2026-09-06-v0.3.0-release.md)为准。完整Windows真机验收和Widget证书仍单独追踪。
 
 ## Screenshots
 
@@ -76,10 +78,10 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 下载与安装
 
-**[Download v0.3.0-preview.3](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0-preview.3)** from GitHub Releases：
+**[Download v0.3.0](https://github.com/sljzdotcom/AI-Token-Meter/releases/tag/v0.3.0)** from GitHub Releases（发布完成后可下载）：
 
-- macOS：下载 `AI-Token-Meter-0.3.0-preview.3-macOS-arm64.zip` 与同名 `.sha256`；
-- Windows：下载 `AI-Token-Meter-0.3.0-preview.3-windows-x64-setup.exe` 与同名 `.sha256`。
+- macOS：下载 `AI-Token-Meter-0.3.0-macOS-arm64.zip` 与同名 `.sha256`；
+- Windows：下载 `AI-Token-Meter-0.3.0-windows-x64-setup.exe` 与同名 `.sha256`。
 
 `0.3.0-preview.3` 明确包含 `REQ-20260904-006` 的 Windows DeepSeek 显式同步、窗口生命周期、紧凑字号与字体下拉可读性修复。
 

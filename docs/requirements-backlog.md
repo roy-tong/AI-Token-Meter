@@ -15,6 +15,7 @@
 
 | ID | 类别 | 需求摘要 | 优先级 | 状态 | 登记日期 | 下一步/阻塞 | 证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| REQ-20260906-004 | 双平台更新发布 | 发布最新紧凑浮动条版本，让现有macOS与Windows机器通过应用内检查更新下载并安装；验证实际更新通道、签名、公开资产，不泄露密钥 | 高 | 进行中 | 2026-09-06 | 核对稳定macOS与Windows Preview更新源，准备同版本构建与公开发布；真实桌面验收及间歇性测试问题不冒充解决 | 用户明确发布授权；发布证据完成后补记 |
 | REQ-20260901-001 | 服务认证 | Settings 始终显示 Claude、Codex 当前账户和登录按钮；支持官方 CLI 重新登录；DeepSeek 显示遮罩 Key，并安全替换 API Key | 高 | 已完成 | 2026-09-01 | 稳定签名发布后重录一次旧 DeepSeek Key，可解除 ad-hoc CDHash 变化造成的钥匙串访问限制 | [设计规格](design/specifications/2026-09-01-service-account-relogin-design.md)、[实施计划](design/implementation-plans/2026-09-01-service-account-relogin.md)、[开发与验收记录](development/2026-09-01-service-account-relogin.md)、`f95c6cf`–`bfc7412`、合并 `cd77e25` |
 | REQ-20260901-002 | 项目治理 | 建立项目级“待完成需求”列表；以后每条新需求先登记，可分类、标记完成/待确认，并在当前任务结束后继续读取处理 | 高 | 已完成 | 2026-09-01 | 后续所有新需求继续遵循本机制 | 本文件、`AGENTS.md`、`641f74c` |
 | REQ-20260901-003 | Widget | Apple Development 证书、Widget 安装、Gallery 与 Small/Medium/Large 真实桌面验收 | 中 | 已延期 | 2026-09-01 | 用户明确要求先放一放；取得证书且用户恢复该事项后继续 | [Widget 开发日志](development/2026-09-01-widgetkit-extension.md) |
