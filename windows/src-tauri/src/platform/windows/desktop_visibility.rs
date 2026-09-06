@@ -55,7 +55,12 @@ pub fn start_monitoring(
             else {
                 return;
             };
-            let enabled = meter_enabled.load(Ordering::Acquire);
+            let prefs = app
+                .state::<crate::RuntimeState>()
+                .app_settings_snapshot()
+                .strip_preferences;
+            let enabled = meter_enabled.load(Ordering::Acquire)
+                && !prefs.hidden(time::OffsetDateTime::now_utc().unix_timestamp());
             let hide_for_fullscreen =
                 enabled && foreground_covers_meter_monitor(&meter).unwrap_or(false);
             if !enabled || hide_for_fullscreen {

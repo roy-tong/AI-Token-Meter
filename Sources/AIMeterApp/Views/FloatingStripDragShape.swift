@@ -7,12 +7,14 @@ enum FloatingStripContentLayout {
     static let verticalPadding: CGFloat = 17
     static let horizontalPadding: CGFloat = 11
 
-    static func providerFrames(in rect: CGRect) -> [CGRect] {
-        let providerStackHeight = 3 * providerButtonSize + 2 * providerSpacing + 2 * verticalPadding
+    static func providerFrames(in rect: CGRect, density: FloatingStripDensity = .comfortable, count: Int = 3) -> [CGRect] {
+        let providerButtonSize = density.ringSize
+        let providerSpacing = density.spacing
+        let providerStackHeight = Double(count) * providerButtonSize + Double(count - 1) * providerSpacing + 2 * verticalPadding
         let originX = rect.midX - providerButtonSize / 2
         let originY = rect.midY - providerStackHeight / 2 + verticalPadding
 
-        return (0..<3).map { index in
+        return (0..<count).map { index in
             CGRect(
                 x: originX,
                 y: originY + CGFloat(index) * (providerButtonSize + providerSpacing),
@@ -25,11 +27,13 @@ enum FloatingStripContentLayout {
 
 struct FloatingStripDragShape: Shape {
     let edge: FloatingStripEdge
+    var density: FloatingStripDensity = .comfortable
+    var providerCount = 3
 
     func path(in rect: CGRect) -> Path {
-        let path = FloatingStripShape(edge: edge).path(in: rect)
+        let path = FloatingStripShape(edge: edge, density: density, providerCount: providerCount).path(in: rect)
         var dragRegion = Path()
-        let frames = FloatingStripContentLayout.providerFrames(in: rect)
+        let frames = FloatingStripContentLayout.providerFrames(in: rect, density: density, count: providerCount)
         var nextY = rect.minY
 
         for frame in frames {

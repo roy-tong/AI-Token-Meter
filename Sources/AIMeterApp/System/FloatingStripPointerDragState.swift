@@ -12,14 +12,16 @@ struct FloatingStripPointerDragState {
         windowPoint: CGPoint,
         screenPoint: CGPoint,
         panelSize: CGSize,
-        edge: FloatingStripEdge
+        edge: FloatingStripEdge,
+        density: FloatingStripDensity = .comfortable,
+        providerCount: Int = 3
     ) -> Bool {
         let rect = CGRect(origin: .zero, size: panelSize)
         let topLeadingPoint = CGPoint(
             x: windowPoint.x,
             y: panelSize.height - windowPoint.y
         )
-        guard FloatingStripDragShape(edge: edge)
+        guard FloatingStripDragShape(edge: edge, density: density, providerCount: providerCount)
             .path(in: rect)
             .contains(topLeadingPoint, eoFill: true) else {
             startScreenPoint = nil

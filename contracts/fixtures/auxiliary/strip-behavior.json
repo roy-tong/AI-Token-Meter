@@ -1,0 +1,15 @@
+{
+  "densities": [
+    {"id": "compact", "width": 78, "height": 286, "ring": 48, "gap": 10},
+    {"id": "comfortable", "width": 108, "height": 356, "ring": 60, "gap": 12}
+  ],
+  "foldDelays": [0, 5, 15],
+  "foldedSize": [12, 96],
+  "operationStates": ["idle", "refreshing", "waiting"],
+  "backoff": [
+    {"kind": "rateLimited", "first": 60, "cap": 900},
+    {"kind": "network", "first": 30, "cap": 600},
+    {"kind": "cli", "first": 30, "cap": 300},
+    {"kind": "authentication", "first": 900, "cap": 900}
+  ]
+}

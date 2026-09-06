@@ -14,4 +14,5 @@ public enum UsageCollectionError: Error, Equatable, Sendable {
     case transportFailure
     case invalidResponse
     case rateLimited
+    case rateLimitedRetryAfter(TimeInterval)
 }

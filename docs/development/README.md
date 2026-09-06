@@ -1,5 +1,7 @@
 # 开发日志索引
 
+- [2026-09-06：紧凑浮动条与刷新韧性](2026-09-06-compact-progressive-strip.md)：双平台偏好、折叠、状态、退避、独立审查与待补实机验收。
+
 开发日志用于记录每个开发阶段的目标、证据、关键决定、测试结果、安装验收和 Git 节点。它与 `CHANGELOG.md` 的区别是：
 
 - `CHANGELOG.md` 面向使用者，按发布版本总结可见变化；
@@ -10,6 +12,7 @@
 
 | 日期 | 内容 | 结果 |
 | --- | --- | --- |
+| [2026-09-06](2026-09-06-codenotch-competitive-review.md) | CodeNotch 竞品研究：紧凑视觉、渐进式展开、运行状态、数据可信度与快捷交互 | 已完成；对照公开 README、设计规格、关键源码和本项目现有尺寸，形成 P0/P1/P2 建议；未直接修改产品界面 |
 | [2026-09-04](2026-09-04-v0.3.0-preview.3-release.md) | `0.3.0-preview.3` 双平台发布与 Windows Preview 更新源推进 | 已完成；Tag `dac10b9`、workflow `33887131319`、公开双平台资产、两套更新签名、公网重下与固定 Windows Preview feed 全部通过 |
 | [2026-09-04](2026-09-04-windows-deepseek-history-and-density.md) | Windows DeepSeek 显式官网同步、托管窗口生命周期、同步反馈和紧凑界面密度 | 独立复审无 Critical/Important；Windows 43 项前端、12 项浏览器生命周期、169 项 Rust、production Chrome 密度、双平台 PR CI 与 NSIS 通过；真实 Windows 11 登录、关闭、聚焦和字体下拉待用户确认 |
 | [2026-09-04](2026-09-04-windows-console-window-suppression.md) | Windows 启动空白 Terminal 的 PE subsystem 根因、编译期修复与真实产物门禁 | subsystem `3 → 2` 红绿门禁、双平台 CI、`v0.3.0-preview.2` 公开发布、公网资产复验与 Windows 11 真机启动确认通过 |

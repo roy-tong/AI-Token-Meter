@@ -23,6 +23,8 @@ AI Token Meter 是一款面向 macOS 与 Windows 的本地桌面用量工具，�
 
 ## 主要功能
 
+开发中：更紧凑的浮动条、可选闲置折叠、服务显示/排序和独立刷新状态；仍保留原深海背景。见[开发记录与验收状态](docs/development/2026-09-06-compact-progressive-strip.md)，已发布安装包以Release版本为准。
+
 - 原生 macOS 菜单栏 App，无 Electron、无常驻浏览器窗口。
 - 菜单栏使用 18×18pt 单色 Quantum Dial：断环进度和指针动态显示三项服务中的最高已用比例，旁边保留精确百分比；无有效数据时显示中性仪表与 `—`。
 - 原生 WidgetKit 桌面组件支持 Small、Medium、Large 三种尺寸：Small 仅显示三个 Logo 状态环，Medium 展示三张额度卡，Large 额外展示最近重置与 OpenAI Codex 重置券摘要。

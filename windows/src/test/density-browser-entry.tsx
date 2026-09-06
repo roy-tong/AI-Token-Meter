@@ -6,6 +6,7 @@ import { FloatingStrip } from "../components/FloatingStrip"
 import { ProviderDetail } from "../details/ProviderDetail"
 import { SettingsWindow } from "../settings/SettingsWindow"
 import type { UsageSnapshot } from "../state/usage"
+import { defaultStripPreferences } from "../state/stripPreferences"
 import "../styles.css"
 
 const displayStyle = {
@@ -29,6 +30,20 @@ root.style.fontFamily = "Antonio, 'Segoe UI Variable', sans-serif"
 flushSync(() => {
   createRoot(root).render(
     <>
+      {new URLSearchParams(location.search).has("comparison") && <aside style={{background: "#172131", padding: 24, height: 510, color: "#fff", fontFamily: "sans-serif"}}>
+        <h2 style={{fontSize: 20}}>AI Token Meter · Compact / Comfortable</h2>
+        <p style={{fontSize: 12, opacity: 0.6}}>Browser render · demo data · both screen edges</p>
+        <div style={{display: "flex", gap: 32}}>
+          {(["compact", "comfortable"] as const).flatMap(density => (["left", "right"] as const).map(edge => <div key={`${density}-${edge}`}>
+            <p style={{fontSize: 12}}>{density} · {edge}</p>
+            <div className={`meter-stage--strip-only meter-edge--${edge}`} style={{width: density === "compact" ? 78 : 108, height: density === "compact" ? 286 : 356}}>
+              <FloatingStrip activeProvider={null} onProviderActivate={() => {}}
+                preferences={{...defaultStripPreferences, density}}
+                snapshots={(["claude", "codex", "deepseek"] as const).map(providerId => ({...snapshot, providerId, usedRatio: 0.25}))} />
+            </div>
+          </div>))}
+        </div>
+      </aside>}
       <main className="meter-stage" style={displayStyle}>
         <FloatingStrip activeProvider={null} onProviderActivate={() => {}} snapshots={[snapshot]} />
       </main>

@@ -4,6 +4,33 @@ import Testing
 
 @Suite("Refresh coordinator", .serialized)
 struct RefreshCoordinatorTests {
+    @Test func cancelledRefreshDoesNotCreateRetryPenalty() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let collector = ControlledCollector(provider: .deepSeek, delay: 0.05, result: .failure(.rateLimited))
+        let coordinator = RefreshCoordinator(collectors: [collector], cache: SnapshotCache(directoryURL: directory))
+        let task = Task { await coordinator.refresh() }
+        while collector.callCount == 0 { await Task.yield() }
+        task.cancel()
+        _ = await task.value
+        _ = await coordinator.refresh(manual: false)
+        #expect(collector.callCount == 2)
+    }
+    @Test("Rate limited provider is not recollected after a coordinator restart")
+    func persistedBackoffSkipsOnlyFailedProvider() async {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let limited = ControlledCollector(provider: .deepSeek, result: .failure(.rateLimited))
+        let healthy = ControlledCollector(provider: .claude, result: .success(snapshot(for: .claude)))
+        let path = directory.appendingPathComponent("backoff.json")
+        let first = RefreshCoordinator(collectors: [limited, healthy], cache: SnapshotCache(directoryURL: directory), backoffURL: path)
+        _ = await first.refresh()
+        let second = RefreshCoordinator(collectors: [limited, healthy], cache: SnapshotCache(directoryURL: directory), backoffURL: path)
+        let values = await second.refresh()
+        #expect(limited.callCount == 1)
+        #expect(healthy.callCount == 2)
+        #expect(values.count == 2)
+    }
     @Test("Runs independent provider collectors concurrently and sorts their results")
     func refreshesConcurrently() async {
         let directory = temporaryDirectory()

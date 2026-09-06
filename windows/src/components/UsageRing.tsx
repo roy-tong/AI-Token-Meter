@@ -7,10 +7,11 @@ import { ProviderLogo } from "./ProviderLogo"
 type UsageRingProps = {
   snapshot: UsageSnapshot
   selected?: boolean
+  needsAction?: boolean
   onActivate: () => void
 }
 
-export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingProps) {
+export function UsageRing({ snapshot, selected = false, needsAction = false, onActivate }: UsageRingProps) {
   const contract = providerContract.providers.find((provider) => provider.id === snapshot.providerId)
   const hasProgress = snapshot.usedRatio != null && ["fresh", "cached", "refreshing"].includes(snapshot.status)
   const percent = hasProgress ? Math.min(Math.max(snapshot.usedRatio! * 100, 0), 100) : null
@@ -18,11 +19,15 @@ export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingP
     "--provider-accent": contract?.accentColor ?? "#7386FF",
     "--usage-progress": percent == null ? "0deg" : `${percent * 3.6}deg`,
   } as CSSProperties
+  const operation = snapshot.status === "refreshing" ? "refreshing"
+    : needsAction || ["authenticationRequired", "setupRequired", "notInstalled"].includes(snapshot.status)
+      || ["Cached · sign in required", "Cached · setup required"].includes(snapshot.statusMessage ?? "") ? "waiting" : "idle"
 
   return (
     <button
       aria-label={`${snapshot.displayName} usage`}
       aria-pressed={selected}
+      aria-description={operation === "refreshing" ? "Refreshing" : operation === "waiting" ? "Action required" : undefined}
       className={`usage-ring usage-ring--${snapshot.status}`}
       onClick={onActivate}
       style={style}
@@ -40,6 +45,8 @@ export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingP
           <ProviderLogo provider={snapshot.providerId} />
         </span>
       </span>
+      {operation !== "idle" && <span aria-hidden="true" className={`usage-ring__operation usage-ring__operation--${operation}`} />}
+      {operation === "waiting" && <span aria-hidden="true" className="usage-ring__action">!</span>}
     </button>
   )
 }

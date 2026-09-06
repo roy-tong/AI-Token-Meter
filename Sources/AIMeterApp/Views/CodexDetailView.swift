@@ -149,7 +149,7 @@ struct CodexDetailView: View {
                     .lineLimit(1)
             }
             Spacer()
-            Text("Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
+            Text("\(ProviderDataState.freshness(snapshot)) · Updated \(snapshot.fetchedAt.formatted(date: .omitted, time: .shortened))")
         }
         .aiMeterFont(.caption2)
         .foregroundStyle(AIMeterVisualTheme.tertiaryText)

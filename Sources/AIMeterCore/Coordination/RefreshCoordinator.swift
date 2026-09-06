@@ -4,32 +4,76 @@ public actor RefreshCoordinator {
     private let collectors: [any UsageCollector]
     private let cache: SnapshotCache
     private var inFlight: Task<[UsageSnapshot], Never>?
+    private let backoffURL: URL
+    private var backoffs: [UsageProvider: RefreshBackoffState]
+    private var lastPresented: [UsageProvider: UsageSnapshot] = [:]
 
     public init(
         collectors: [any UsageCollector],
-        cache: SnapshotCache
+        cache: SnapshotCache,
+        backoffURL: URL? = nil
     ) {
         self.collectors = collectors
         self.cache = cache
+        let url = backoffURL ?? cache.fileURL.deletingLastPathComponent().appendingPathComponent("refresh-backoff.json")
+        self.backoffURL = url
+        self.backoffs = (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode([UsageProvider: RefreshBackoffState].self, from: $0) } ?? [:]
     }
 
-    public func refresh() async -> [UsageSnapshot] {
+    public func refresh(manual: Bool = true,
+                        onOperation: @escaping @Sendable (UsageProvider, Bool) async -> Void = { _, _ in }) async -> [UsageSnapshot] {
         if let inFlight {
             return await inFlight.value
         }
 
-        let task = Task { [collectors, cache] in
-            await Self.performRefresh(collectors: collectors, cache: cache)
+        let now = Date().timeIntervalSince1970
+        for provider in Array(backoffs.keys) { backoffs[provider]?.normalizeClock(now: now) }
+        saveBackoffs()
+        let eligible = collectors.filter { backoffs[$0.provider]?.isEligible(now: now, manual: manual) ?? true }
+        let task = Task {
+            await self.performRefresh(collectors: eligible, cache: self.cache, onOperation: onOperation)
         }
         inFlight = task
-        let snapshots = await task.value
+        let refreshed = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        let cacheByProvider = Dictionary(((try? cache.load()) ?? []).map { ($0.provider, $0) }, uniquingKeysWith: { first, _ in first })
+        let snapshots = collectors.map { collector in
+            if let snapshot = refreshed.first(where: { $0.provider == collector.provider }) { return snapshot }
+            if let cached = cacheByProvider[collector.provider] {
+                return Self.cachedPresentation(from: cached, message: lastPresented[collector.provider]?.statusMessage ?? "Waiting before next refresh")
+            }
+            return lastPresented[collector.provider] ?? Self.failurePresentation(for: collector.provider, error:
+                backoffs[collector.provider]?.failureKind == .authentication ? .authenticationRequired : .rateLimited)
+        }
+        lastPresented = Dictionary(snapshots.map { ($0.provider, $0) }, uniquingKeysWith: { first, _ in first })
         inFlight = nil
-        return snapshots
+        return Self.sorted(snapshots)
     }
 
-    private static func performRefresh(
+    public func clearAuthenticationBackoff(for provider: UsageProvider) {
+        guard backoffs[provider]?.failureKind == .authentication else { return }
+        backoffs.removeValue(forKey: provider)
+        saveBackoffs()
+    }
+
+    public func providersRequiringAction() -> Set<UsageProvider> {
+        Set(backoffs.filter { $0.value.failureKind == .authentication }.map(\.key))
+    }
+
+    private func saveBackoffs() {
+        do {
+            try FileManager.default.createDirectory(at: backoffURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONEncoder().encode(backoffs).write(to: backoffURL, options: .atomic)
+        } catch { NSLog("AI Token Meter: refresh retry state could not be saved") }
+    }
+
+    private func performRefresh(
         collectors: [any UsageCollector],
-        cache: SnapshotCache
+        cache: SnapshotCache,
+        onOperation: @escaping @Sendable (UsageProvider, Bool) async -> Void
     ) async -> [UsageSnapshot] {
         let cachedSnapshots = (try? cache.load()) ?? []
         let cachedByProvider = Dictionary(
@@ -40,14 +84,19 @@ public actor RefreshCoordinator {
         let outcomes = await withTaskGroup(of: RefreshOutcome.self) { group in
             for collector in collectors {
                 group.addTask {
+                    await onOperation(collector.provider, true)
                     do {
+                        let value = try await collector.collect()
+                        await onOperation(collector.provider, false)
                         return RefreshOutcome(
                             provider: collector.provider,
-                            result: .success(try await collector.collect())
+                            result: .success(value)
                         )
                     } catch let error as UsageCollectionError {
+                        await onOperation(collector.provider, false)
                         return RefreshOutcome(provider: collector.provider, result: .failure(error))
                     } catch {
+                        await onOperation(collector.provider, false)
                         return RefreshOutcome(
                             provider: collector.provider,
                             result: .failure(.transportFailure)
@@ -63,18 +112,36 @@ public actor RefreshCoordinator {
             return collected
         }
 
+        // A cancelled pass may have cooperative or non-cooperative collectors. Neither
+        // is allowed to replace the cache or create retry penalties after cancellation.
+        guard !Task.isCancelled else { return [] }
+
         var lastGoodByProvider = cachedByProvider
         var presented: [UsageSnapshot] = []
 
         for outcome in outcomes {
             switch outcome.result {
             case let .success(snapshot):
+                backoffs.removeValue(forKey: outcome.provider)
                 lastGoodByProvider[outcome.provider] = snapshot
                 presented.append(snapshot)
             case let .failure(error):
-                let failure = failurePresentation(for: outcome.provider, error: error)
+                if !Task.isCancelled {
+                    var backoff = backoffs[outcome.provider] ?? RefreshBackoffState()
+                    let kind: RefreshFailureKind
+                    var delay: TimeInterval = 0
+                    switch error {
+                    case .rateLimited: kind = .rateLimited
+                    case .rateLimitedRetryAfter(let seconds): kind = .rateLimited; delay = seconds
+                    case .authenticationRequired, .setupRequired, .notInstalled: kind = .authentication
+                    default: kind = outcome.provider == .deepSeek ? .network : .cli
+                    }
+                    backoff.record(kind, now: Date().timeIntervalSince1970, retryAfter: delay)
+                    backoffs[outcome.provider] = backoff
+                }
+                let failure = Self.failurePresentation(for: outcome.provider, error: error)
                 if let cached = cachedByProvider[outcome.provider] {
-                    presented.append(cachedPresentation(from: cached, message: failure.statusMessage))
+                    presented.append(Self.cachedPresentation(from: cached, message: failure.statusMessage))
                 } else {
                     presented.append(failure)
                 }
@@ -82,9 +149,10 @@ public actor RefreshCoordinator {
         }
 
         if outcomes.contains(where: { if case .success = $0.result { true } else { false } }) {
-            try? cache.save(sorted(Array(lastGoodByProvider.values)))
+            try? cache.save(Self.sorted(Array(lastGoodByProvider.values)))
         }
-        return sorted(presented)
+        saveBackoffs()
+        return Self.sorted(presented)
     }
 
     private static func cachedPresentation(
@@ -127,7 +195,7 @@ public actor RefreshCoordinator {
         case .unrecognizedOutput:
             status = .unrecognizedOutput
             message = "Usage format is not recognized"
-        case .rateLimited:
+        case .rateLimited, .rateLimitedRetryAfter:
             status = .unavailable
             message = "Rate limited; try again later"
         case .timedOut:

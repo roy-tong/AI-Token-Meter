@@ -71,7 +71,36 @@ impl DeepSeekBalanceClient {
         match response.status() {
             StatusCode::OK => {}
             StatusCode::UNAUTHORIZED => return Err(DeepSeekClientError::AuthenticationRequired),
-            StatusCode::TOO_MANY_REQUESTS => return Err(DeepSeekClientError::RateLimited),
+            StatusCode::TOO_MANY_REQUESTS => {
+                let delay = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|v| {
+                        v.parse::<u64>()
+                            .ok()
+                            .or_else(|| {
+                                time::OffsetDateTime::parse(
+                                    v,
+                                    &time::format_description::well_known::Rfc2822,
+                                )
+                                .ok()
+                                .map(|date| {
+                                    (date.unix_timestamp()
+                                        - time::OffsetDateTime::now_utc().unix_timestamp())
+                                    .max(0) as u64
+                                })
+                            })
+                            .unwrap_or(0)
+                            .min(86400)
+                    })
+                    .unwrap_or(0);
+                return Err(if delay > 0 {
+                    DeepSeekClientError::RateLimitedRetryAfter(delay)
+                } else {
+                    DeepSeekClientError::RateLimited
+                });
+            }
             _ => return Err(DeepSeekClientError::Transport),
         }
         if response
@@ -162,15 +191,45 @@ where
 
     pub async fn collect_with_cancellation(
         &self,
-        cached: Option<&UsageSnapshot>,
+        _cached: Option<&UsageSnapshot>,
         fetched_at: &str,
         cancellation: Arc<CancellationToken>,
     ) -> Result<UsageSnapshot, CollectionError> {
         tokio::select! {
             biased;
             _ = wait_for_cancellation(&cancellation) => Err(CollectionError::Cancelled),
-            snapshot = self.collect(cached, fetched_at) => Ok(snapshot),
+            snapshot = self.collect_result(fetched_at) => snapshot,
         }
+    }
+
+    async fn collect_result(&self, fetched_at: &str) -> Result<UsageSnapshot, CollectionError> {
+        let secret = self
+            .credentials
+            .read(CredentialAccount::DeepSeekApiKey)
+            .await
+            .map_err(|_| CollectionError::Transport)?
+            .filter(|secret| !secret.expose().trim().is_empty())
+            .ok_or(CollectionError::SetupRequired)?;
+        let balance = self
+            .client
+            .fetch_balance(&secret)
+            .await
+            .map_err(|error| match error {
+                DeepSeekClientError::AuthenticationRequired => {
+                    CollectionError::AuthenticationRequired
+                }
+                DeepSeekClientError::RateLimited => CollectionError::RateLimited(0),
+                DeepSeekClientError::RateLimitedRetryAfter(seconds) => {
+                    CollectionError::RateLimited(seconds)
+                }
+                DeepSeekClientError::TimedOut => CollectionError::TimedOut,
+                _ => CollectionError::Transport,
+            })?;
+        Ok(snapshot_from_balance(
+            balance,
+            self.balance_baseline,
+            fetched_at,
+        ))
     }
 }
 
@@ -190,6 +249,7 @@ pub struct DeepSeekBalance {
 pub enum DeepSeekClientError {
     AuthenticationRequired,
     RateLimited,
+    RateLimitedRetryAfter(u64),
     TimedOut,
     InvalidResponse,
     ResponseTooLarge,
@@ -201,7 +261,7 @@ impl Display for DeepSeekClientError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::AuthenticationRequired => "authentication required",
-            Self::RateLimited => "request rate limited",
+            Self::RateLimited | Self::RateLimitedRetryAfter(_) => "request rate limited",
             Self::TimedOut => "request timed out",
             Self::InvalidResponse => "invalid balance response",
             Self::ResponseTooLarge => "balance response exceeded the size limit",

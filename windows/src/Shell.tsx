@@ -17,8 +17,10 @@ import {
 import type { ProviderId, UsageSnapshot } from "./state/usage"
 import { TauriUsageBridge } from "./state/usageBridge"
 import { useUsageSnapshots } from "./state/useUsageSnapshots"
+import { defaultStripPreferences, type StripPreferences } from "./state/stripPreferences"
 
 type RuntimeSettings = {
+  stripPreferences: StripPreferences
   displayFont: string
   edge: "left" | "right"
   detailAutoHideSeconds: number
@@ -31,6 +33,7 @@ type RuntimeSettings = {
 }
 
 const defaultSettings: RuntimeSettings = {
+  stripPreferences: defaultStripPreferences,
   displayFont: "Antonio",
   edge: "right",
   detailAutoHideSeconds: 8,
@@ -64,6 +67,37 @@ function MeterSurface() {
   const snapshots = useUsageSnapshots(bridge)
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null)
   const settings = useRuntimeSettings()
+  const [folded, setFolded] = useState(false)
+  const [historyNeedsAction, setHistoryNeedsAction] = useState(false)
+  useEffect(() => {
+    let disposed = false
+    let latest: DeepSeekHistoryStatusSnapshot | null = null
+    let stop: (() => void) | undefined
+    const accept = (value: unknown) => {
+      if (disposed || !isDeepSeekHistoryStatusSnapshot(value)) return
+      if (latest?.generation != null && (value.generation == null || value.generation < latest.generation)) return
+      if (latest && latest.generation === value.generation && historyStatusRank(value.status) < historyStatusRank(latest.status)) return
+      latest = value
+      setHistoryNeedsAction(value.status === "opening" || value.status === "active")
+    }
+    void listen<unknown>("deepseek-history-status", event => accept(event.payload)).then(unlisten => {
+      if (disposed) unlisten(); else stop = unlisten
+    }).catch(() => {})
+    void invoke<unknown>("deepseek_history_status").then(accept).catch(() => {})
+    return () => { disposed = true; stop?.() }
+  }, [])
+  useEffect(() => {
+    let disposed = false
+    let stop: (() => void) | undefined
+    void invoke<boolean>("strip_folded").then(value => { if (!disposed) setFolded(value) })
+    void listen<boolean>("strip-folded", event => { if (!disposed) setFolded(event.payload) }).then(unlisten => {
+      if (disposed) unlisten(); else stop = unlisten
+    })
+    return () => { disposed = true; stop?.() }
+  }, [])
+  useEffect(() => {
+    if (activeProvider && settings.stripPreferences.hiddenProviders.includes(activeProvider)) setActiveProvider(null)
+  }, [settings.stripPreferences, activeProvider])
   useEffect(() => {
     const startDrag = () => {
       void invoke("begin_meter_drag")
@@ -93,6 +127,11 @@ function MeterSurface() {
       style={displayStyle(settings.displayFont)}
     >
       <FloatingStrip
+        preferences={settings.stripPreferences}
+        folded={folded}
+        historyNeedsAction={historyNeedsAction}
+        onInteraction={(kind, active) => { void invoke("strip_interaction", {kind, active}) }}
+        onContextMenu={() => { void invoke("strip_context_menu") }}
         activeProvider={activeProvider}
         onProviderActivate={(providerId) => {
           if (providerId === activeProvider) {
@@ -112,6 +151,7 @@ function MeterSurface() {
 export function DetailSurface() {
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
   const [paused, setPaused] = useState(false)
+  const [contextMenuOpen, setContextMenuOpen] = useState(false)
   const [deepseekHistoryState, setDeepseekHistoryState] = useState<DeepSeekHistoryStatusSnapshot>({
     generation: null,
     status: "idle",
@@ -170,6 +210,9 @@ export function DetailSurface() {
     }
     subscribe<UsageSnapshot>("active-detail-changed", (event) => {
       if (!disposed) setSnapshot(event.payload)
+    })
+    subscribe<boolean>("strip-context-menu", (event) => {
+      if (!disposed) setContextMenuOpen(event.payload)
     })
     subscribe<UsageSnapshot>("snapshot-updated", (event) => {
       if (!disposed) {
@@ -233,13 +276,13 @@ export function DetailSurface() {
   useEffect(() => {
     const syncingHistory = snapshot?.providerId === "deepseek"
       && (deepseekHistoryState.status === "opening" || deepseekHistoryState.status === "active")
-    if (!snapshot || paused || syncingHistory) return
+    if (!snapshot || paused || contextMenuOpen || syncingHistory) return
     const timeout = window.setTimeout(() => {
       setSnapshot(null)
       void invoke("close_provider_detail")
     }, settings.detailAutoHideSeconds * 1_000)
     return () => window.clearTimeout(timeout)
-  }, [deepseekHistoryState.status, paused, settings.detailAutoHideSeconds, snapshot])
+  }, [contextMenuOpen, deepseekHistoryState.status, paused, settings.detailAutoHideSeconds, snapshot])
 
   if (!snapshot) return null
   return (
@@ -374,6 +417,8 @@ function SettingsSurface() {
   }, [])
   return (
     <SettingsWindow
+      stripPreferences={settings.stripPreferences}
+      onStripPreferencesChange={value => { void invoke("set_strip_preferences", { value }).catch(() => setServiceMessage("Floating strip settings could not be saved.")) }}
       detailAutoHideSeconds={settings.detailAutoHideSeconds}
       refreshIntervalSeconds={settings.refreshIntervalSeconds}
       deepseekBalanceBaselineCents={settings.deepseekBalanceBaselineCents}
@@ -456,7 +501,7 @@ function useRuntimeSettings() {
     let disposed = false
     const stops: Array<() => void> = []
     invoke<RuntimeSettings>("app_settings").then((value) => {
-      if (!disposed) setSettings(value)
+      if (!disposed) setSettings({ ...defaultSettings, ...value })
     }).catch(() => {})
     const subscriptions = [
       listen<"left" | "right">("meter-edge-changed", (event) => {
@@ -469,7 +514,7 @@ function useRuntimeSettings() {
         if (!disposed) setSettings((current) => ({ ...current, detailAutoHideSeconds: event.payload }))
       }),
       listen<RuntimeSettings>("app-settings-changed", (event) => {
-        if (!disposed) setSettings(event.payload)
+        if (!disposed) setSettings({ ...defaultSettings, ...event.payload })
       }),
     ]
     void Promise.all(subscriptions).then((unlisten) => {

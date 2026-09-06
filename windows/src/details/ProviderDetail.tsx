@@ -94,9 +94,21 @@ export function ProviderDetail({
         </section>
       ) : null}
 
-      <footer>Updated {formatTime(snapshot.fetchedAt)}</footer>
+      <footer>{freshness(snapshot)} · Updated {formatTime(snapshot.fetchedAt)}</footer>
     </section>
   )
+}
+
+function freshness(snapshot: UsageSnapshot) {
+  const age = Math.max(0, (Date.now() - Date.parse(snapshot.fetchedAt)) / 1000)
+  if (snapshot.status === "cached" || (snapshot.status === "fresh" && age >= snapshot.staleAfterSeconds)) {
+    return `Cached · ${Math.floor(age / 60)} min ago`
+  }
+  if (snapshot.status === "fresh") return "Fresh"
+  if (snapshot.status === "refreshing") return "Refreshing"
+  if (snapshot.status === "authenticationRequired") return "Needs sign-in"
+  if (["setupRequired", "notInstalled"].includes(snapshot.status)) return "Needs setup"
+  return "Unavailable"
 }
 
 function MetricCard({ metric }: { metric: UsageMetric }) {
