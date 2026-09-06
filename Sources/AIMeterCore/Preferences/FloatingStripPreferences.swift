@@ -25,6 +25,17 @@ public struct FloatingStripPreferences: Codable, Equatable, Sendable {
 
     public init(hiddenUntil: TimeInterval? = nil) { self.hiddenUntil = hiddenUntil }
 
+    private enum CodingKeys: String, CodingKey { case density, foldDelay, orderedProviders, hiddenProviders, hiddenUntil }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        density = (try? values.decode(FloatingStripDensity.self, forKey: .density)) ?? .compact
+        foldDelay = (try? values.decode(FloatingStripFoldDelay.self, forKey: .foldDelay)) ?? .never
+        orderedProviders = (try? values.decode([String].self, forKey: .orderedProviders))?.compactMap(UsageProvider.init(rawValue:)) ?? UsageProvider.allCases
+        hiddenProviders = (try? values.decode([String].self, forKey: .hiddenProviders))?.compactMap(UsageProvider.init(rawValue:)) ?? []
+        hiddenUntil = try? values.decode(TimeInterval.self, forKey: .hiddenUntil)
+        normalize()
+    }
+
     public var visibleProviders: [UsageProvider] {
         orderedProviders.filter { !hiddenProviders.contains($0) }
     }

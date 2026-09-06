@@ -82,7 +82,8 @@ struct ClaudeDetailPresentationTests {
         #expect(source.contains("localStat(title: \"Tokens\""))
         #expect(source.contains("activityChart(summary)"))
         #expect(source.contains("localActivityEmptyState"))
-        #expect(source.contains("Text(\"Updated "))
+        #expect(source.contains("ProviderDataState.freshness(snapshot)"))
+        #expect(source.contains("snapshot.fetchedAt.formatted"))
     }
 
     @Test("Claude detail omits the local privacy note")
@@ -98,7 +99,8 @@ struct ClaudeDetailPresentationTests {
         #expect(!source.contains("Only aggregate timestamps, token counts, session IDs and model IDs are read."))
         #expect(!source.contains("systemImage: \"lock.shield\""))
         #expect(source.contains("activityChart(summary)"))
-        #expect(source.contains("Text(\"Updated "))
+        #expect(source.contains("ProviderDataState.freshness(snapshot)"))
+        #expect(source.contains("snapshot.fetchedAt.formatted"))
     }
 
     private func makeSummary(

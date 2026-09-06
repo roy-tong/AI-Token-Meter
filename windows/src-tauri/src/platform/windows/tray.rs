@@ -22,6 +22,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         .text("refresh", "Refresh")
         .text("settings", "Settings")
         .text("toggle-meter", "Show / Hide Meter")
+        .text("show-meter-now", "Show Floating Strip Now")
         .text("about", "About AI Token Meter")
         .separator()
         .text("quit", "Quit AI Token Meter")
@@ -37,6 +38,16 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id().as_ref() {
+            "show-meter-now" => {
+                let state = app.state::<crate::RuntimeState>();
+                let mut value = state.app_settings_snapshot().strip_preferences;
+                value.hidden_until = None;
+                let _ = crate::set_strip_preferences(app.clone(), app.state(), value);
+                state
+                    .meter_enabled
+                    .store(true, std::sync::atomic::Ordering::Release);
+                let _ = super::strip_runtime::restore(app);
+            }
             "refresh" => {
                 let _ = app.emit("refresh-requested", ());
             }

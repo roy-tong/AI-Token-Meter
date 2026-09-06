@@ -27,6 +27,8 @@ pub struct ProviderCliSettings {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    #[serde(default, deserialize_with = "deserialize_strip_preferences")]
+    pub strip_preferences: crate::platform::windows::strip_preferences::StripPreferences,
     pub edge: MeterEdge,
     #[serde(default = "default_meter_vertical_per_mille")]
     pub meter_vertical_per_mille: u16,
@@ -47,9 +49,20 @@ pub struct AppSettings {
     pub codex_cli: ProviderCliSettings,
 }
 
+fn deserialize_strip_preferences<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<crate::platform::windows::strip_preferences::StripPreferences, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    let mut preferences: crate::platform::windows::strip_preferences::StripPreferences =
+        serde_json::from_value(value).unwrap_or_default();
+    preferences.normalize();
+    Ok(preferences)
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            strip_preferences: Default::default(),
             edge: MeterEdge::Right,
             meter_vertical_per_mille: default_meter_vertical_per_mille(),
             meter_monitor_id: None,

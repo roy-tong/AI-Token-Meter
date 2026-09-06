@@ -4,6 +4,8 @@ import SwiftUI
 struct UsageRing: View {
     let presentation: ProviderPresentation
     var size: CGFloat = 60
+    var operation: ProviderOperationState = .idle
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
@@ -24,6 +26,25 @@ struct UsageRing: View {
                     .rotationEffect(.degrees(-90))
             }
             ProviderLogo(provider: presentation.provider, size: size * 0.44)
+            if operation != .idle {
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { context in
+                    let seconds = context.date.timeIntervalSinceReferenceDate
+                    Circle()
+                        .trim(from: 0, to: operation == .refreshing ? 0.25 : 1)
+                        .stroke(operation == .refreshing ? Color(red: 0.72, green: 0.85, blue: 1) : Color.orange,
+                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                        .rotationEffect(.degrees(operation == .refreshing && !reduceMotion ? seconds / 1.1 * 360 : -90))
+                        .opacity(operation == .waiting && !reduceMotion ? 0.55 + 0.3 * sin(seconds * 3) : 0.85)
+                        .frame(width: size * 0.70, height: size * 0.70)
+                }
+                .accessibilityHidden(true)
+            }
+            if operation == .waiting {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 10)).foregroundStyle(.orange)
+                    .offset(x: size * 0.30, y: -size * 0.30)
+                    .accessibilityHidden(true)
+            }
             if differentiateWithoutColor,
                let symbolName = presentation.semantic.statusSymbolName {
                 Image(systemName: symbolName)
@@ -38,6 +59,7 @@ struct UsageRing: View {
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(operation == .refreshing ? "Refreshing" : operation == .waiting ? "Action required" : "")
     }
 
     private var accessibilityLabel: String {

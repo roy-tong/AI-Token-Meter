@@ -45,9 +45,9 @@
 | 2026-09-03 | Windows 平台与双平台同步发布 | [规格](specifications/2026-09-03-windows-platform-design.md) | [计划](implementation-plans/2026-09-03-windows-platform.md) |
 | 2026-09-04 | [Windows DeepSeek 历史窗口与界面密度](../development/2026-09-04-windows-deepseek-history-and-density.md) | [规格](specifications/2026-09-04-windows-deepseek-history-and-density-design.md) | [计划](implementation-plans/2026-09-04-windows-deepseek-history-and-density.md) |
 | 2026-09-04 | Windows DeepSeek 最终质量门禁修复 | [规格](specifications/2026-09-04-windows-deepseek-final-quality-gate-design.md) | [计划](implementation-plans/2026-09-04-windows-deepseek-final-quality-gate.md) |
-| 2026-09-06 | 紧凑浮动条与闲置折叠 | [规格](specifications/2026-09-06-compact-floating-strip-and-idle-fold-design.md) | 待规格确认后编写 |
-| 2026-09-06 | 浮动条 Provider 管理与右键菜单 | [规格](specifications/2026-09-06-floating-strip-provider-controls-design.md) | 待规格确认后编写 |
-| 2026-09-06 | Provider 状态表达与刷新韧性 | [规格](specifications/2026-09-06-provider-state-and-refresh-resilience-design.md) | 待规格确认后编写 |
+| 2026-09-06 | 紧凑浮动条与闲置折叠 | [规格](specifications/2026-09-06-compact-floating-strip-and-idle-fold-design.md) | [计划](implementation-plans/2026-09-06-compact-floating-strip-and-idle-fold.md) |
+| 2026-09-06 | 浮动条 Provider 管理与右键菜单 | [规格](specifications/2026-09-06-floating-strip-provider-controls-design.md) | [计划](implementation-plans/2026-09-06-floating-strip-provider-controls.md) |
+| 2026-09-06 | Provider 状态表达与刷新韧性 | [规格](specifications/2026-09-06-provider-state-and-refresh-resilience-design.md) | [计划](implementation-plans/2026-09-06-provider-state-and-refresh-resilience.md) |
 
 ## 阅读顺序与历史边界
 

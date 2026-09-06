@@ -99,6 +99,17 @@ struct AppearanceSettingsView: View {
                             .disabled(model.stripPreferences.orderedProviders.last == provider)
                             .accessibilityLabel("Move \(provider.displayName) down")
                     }
+                    .draggable(provider.rawValue)
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let raw = items.first, let source = UsageProvider(rawValue: raw), source != provider else { return false }
+                        var value = model.stripPreferences
+                        guard let from = value.orderedProviders.firstIndex(of: source),
+                              let to = value.orderedProviders.firstIndex(of: provider) else { return false }
+                        value.orderedProviders.remove(at: from)
+                        value.orderedProviders.insert(source, at: to)
+                        model.setStripPreferences(value)
+                        return true
+                    }
                 }
                 Text("Keep at least one service visible. Hidden services continue monitoring.")
                     .font(.caption).foregroundStyle(.secondary)

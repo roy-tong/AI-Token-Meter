@@ -1,6 +1,7 @@
 pub mod activity_timeout;
 #[cfg(windows)]
 pub mod application;
+pub mod backoff;
 pub mod claude;
 pub mod claude_activity;
 pub mod codex;
@@ -13,6 +14,7 @@ pub mod refresh_schedule;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CollectionError {
+    RateLimited(u64),
     AuthenticationRequired,
     SetupRequired,
     InvalidResponse,

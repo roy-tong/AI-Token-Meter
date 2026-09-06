@@ -22,7 +22,7 @@ final class AppModel {
     private let displayFontPreferenceStore: DisplayFontPreferenceStore
     private let floatingStripPositionStore: FloatingStripPositionStore
     private let widgetSnapshotPublisher: WidgetSnapshotPublisher?
-    private let refreshOperation: @Sendable () async -> [UsageSnapshot]
+    private let refreshOperation: (@Sendable () async -> [UsageSnapshot])?
     private let serviceAccountRefreshOperation: @Sendable (UsageProvider?) async -> [ServiceAccountStatus]
     private let authenticationOpenOperation: (UsageProvider) throws -> Void
     private let codexInstallGuideOpenOperation: () -> Bool
@@ -35,12 +35,15 @@ final class AppModel {
     private var refreshLoop: Task<Void, Never>?
     private var signInTasks: [UsageProvider: Task<Void, Never>] = [:]
     private var signInTokens: [UsageProvider: UUID] = [:]
+    private var providersRequiringAction: Set<UsageProvider> = []
+    var isAuthenticating: Bool { !signInTokens.isEmpty }
     private var isRefreshingServiceAccounts = false
 
     let deepSeekWebSession: DeepSeekWebSession
 
     private(set) var snapshots: [UsageSnapshot] = []
     private(set) var isRefreshing = false
+    private(set) var refreshingProviders: Set<UsageProvider> = []
     private(set) var lastUpdatedAt: Date?
     private(set) var apiKeyConfigured = false
     private(set) var serviceAccounts: [UsageProvider: ServiceAccountStatus] = [
@@ -157,7 +160,7 @@ final class AppModel {
             cache: SnapshotCache(directoryURL: cacheDirectory)
         )
         self.coordinator = coordinator
-        self.refreshOperation = refreshOperation ?? { await coordinator.refresh() }
+        self.refreshOperation = refreshOperation
         apiKeyConfigured = false
         launchAtLoginEnabled = launchAtLoginService.isEnabled
     }
@@ -190,14 +193,14 @@ final class AppModel {
         refreshLoop = Task { [weak self] in
             guard let self else { return }
             await refreshServiceAccounts()
-            await refresh()
+            await refresh(manual: false)
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: .seconds(300))
                 } catch {
                     return
                 }
-                await refresh()
+                await refresh(manual: false)
             }
         }
     }
@@ -210,7 +213,7 @@ final class AppModel {
         signInTokens.removeAll()
     }
 
-    func refresh() async {
+    func refresh(manual: Bool = true) async {
         if isDemoMode {
             snapshots = Self.demoSnapshots
             lastUpdatedAt = Date()
@@ -219,9 +222,19 @@ final class AppModel {
         }
         guard !isRefreshing else { return }
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer { isRefreshing = false; refreshingProviders.removeAll() }
 
-        let collected = await refreshOperation()
+        let collected: [UsageSnapshot]
+        if let refreshOperation {
+            refreshingProviders = Set(UsageProvider.allCases)
+            collected = await refreshOperation()
+        } else {
+            collected = await coordinator.refresh(manual: manual) { [weak self] provider, active in
+                await self?.setProviderRefreshing(provider, active: active)
+            }
+        }
+        guard !Task.isCancelled else { return }
+        providersRequiringAction = await coordinator.providersRequiringAction()
         updateAPIKeyConfiguration(from: collected)
         snapshots = collected.map(applyingLocalBudget).map(applyingDeepSeekHistory)
         lastUpdatedAt = Date()
@@ -233,6 +246,17 @@ final class AppModel {
         if !events.isEmpty {
             notificationHandler?(events)
         }
+    }
+
+    private func setProviderRefreshing(_ provider: UsageProvider, active: Bool) {
+        if active { refreshingProviders.insert(provider) } else { refreshingProviders.remove(provider) }
+    }
+
+    func operationState(for provider: UsageProvider) -> ProviderOperationState {
+        let status = snapshots.first { $0.provider == provider }?.collectionStatus ?? .unavailable
+        let needsAction = serviceAccounts[provider].map { [.signInRequired, .notInstalled].contains($0.connectionState) } ?? false
+        return .resolve(status: status, refreshing: refreshingProviders.contains(provider),
+                        needsAction: needsAction || signInTokens[provider] != nil || providersRequiringAction.contains(provider))
     }
 
     func setFloatingStripVisible(_ isVisible: Bool) {
@@ -438,6 +462,7 @@ final class AppModel {
                    sawNonConnectedStatus || identityChanged {
                     settingsMessage = "\(provider.displayName) account connected."
                     settingsMessageKind = authenticationMessageKind(for: provider)
+                    await coordinator.clearAuthenticationBackoff(for: provider)
                     await refresh()
                     guard !Task.isCancelled,
                           signInTokens[provider] == signInToken else { return }
@@ -471,6 +496,7 @@ final class AppModel {
             apiKeyConfigured = status.connectionState == .connected
             settingsMessage = "DeepSeek API Key verified and saved in Keychain."
             settingsMessageKind = .deepSeekCredential
+            await coordinator.clearAuthenticationBackoff(for: .deepSeek)
             await refresh()
             return true
         } catch let error as DeepSeekCredentialReplacementError {

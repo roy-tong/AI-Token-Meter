@@ -68,6 +68,9 @@ struct DeepSeekAnalyticsView: View {
                 Text("current balance")
                     .aiMeterFont(.caption2)
                     .foregroundStyle(AIMeterVisualTheme.tertiaryText)
+                Text(ProviderDataState.freshness(snapshot))
+                    .aiMeterFont(.caption2)
+                    .foregroundStyle(AIMeterVisualTheme.tertiaryText)
             }
             Button {
                 webSession.syncIfNeeded(force: true)

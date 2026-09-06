@@ -322,19 +322,25 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         return window.convertPoint(toScreen: event.locationInWindow)
     }
 
-    private func positionPanels(userInitiated: Bool = false) {
+    private func positionPanels(userInitiated: Bool = false, foldingAnimation: Bool = false) {
         guard let context = placementContext(userInitiated: userInitiated) else { return }
         let screen = context.screen
         let edge = context.edge
         displayState.resolvedEdge = edge
         displayState.normalizedCenterY = context.normalizedCenterY
-        let stripFrame = FloatingStripLayout.stripFrame(
+        let expandedFrame = FloatingStripLayout.anchoredFrame(
             in: screen.visibleFrame,
-            size: stripSize,
+            size: expandedStripSize,
             edge: edge,
             normalizedCenterY: context.normalizedCenterY
         )
-        stripPanel.setFrame(stripFrame, display: true, animate: false)
+        let stripFrame = displayState.isFolded ? FloatingStripLayout.foldedFrame(from: expandedFrame, edge: edge) : expandedFrame
+        if foldingAnimation && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = displayState.isFolded ? 0.16 : 0.18
+                stripPanel.animator().setFrame(stripFrame, display: true)
+            }
+        } else { stripPanel.setFrame(stripFrame, display: true, animate: false) }
         positionDetail(relativeTo: stripFrame, edge: edge, on: screen, animate: false)
         switch context.persistenceAction {
         case .preserve:
@@ -393,17 +399,18 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
             visibleFrame: screen.visibleFrame
         )
         displayState.resolvedEdge = placement.edge
-        displayState.normalizedCenterY = placement.normalizedCenterY
-        let finalFrame = FloatingStripLayout.stripFrame(
+        let anchor = FloatingStripLayout.anchorNormalizedY(for: proposedFrame, in: screen.visibleFrame)
+        displayState.normalizedCenterY = anchor
+        let finalFrame = FloatingStripLayout.anchoredFrame(
             in: screen.visibleFrame,
             size: stripSize,
             edge: placement.edge,
-            normalizedCenterY: placement.normalizedCenterY
+            normalizedCenterY: anchor
         )
         stripPanel.setFrame(finalFrame, display: true, animate: true)
         model.saveFloatingStripPlacement(
             edge: placement.edge,
-            normalizedCenterY: placement.normalizedCenterY,
+            normalizedCenterY: anchor,
             screenIdentifier: Self.identity(for: screen)?.stableIdentifier
         )
         positionDetail(relativeTo: finalFrame, edge: placement.edge, on: screen, animate: true)
@@ -533,6 +540,10 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
 
     private var stripSize: CGSize {
         if displayState.isFolded { return CGSize(width: 12, height: 96) }
+        return expandedStripSize
+    }
+
+    private var expandedStripSize: CGSize {
         let value = model.stripPreferences
         return CGSize(width: value.density.width, height: value.density.height(providerCount: value.visibleProviders.count))
     }
@@ -552,12 +563,12 @@ final class FloatingPanelController: NSObject, NSMenuDelegate {
         let locked = forceExpanded || stripPanel.frame.contains(point)
             || session.selectedProvider != nil || displayState.isDragging || menuIsOpen
             || stripPanel.isKeyWindow || NSWorkspace.shared.isVoiceOverEnabled
-            || model.isRefreshing || model.serviceAccounts.values.contains { $0.connectionState == .checking }
+            || model.isRefreshing || model.isAuthenticating || model.serviceAccounts.values.contains { $0.connectionState == .checking }
         foldState.update(now: ProcessInfo.processInfo.systemUptime,
                          delay: Double(model.stripPreferences.foldDelay.rawValue), locked: locked)
         if displayState.isFolded != foldState.isFolded {
             displayState.isFolded = foldState.isFolded
-            positionPanels()
+            positionPanels(foldingAnimation: true)
         }
     }
 

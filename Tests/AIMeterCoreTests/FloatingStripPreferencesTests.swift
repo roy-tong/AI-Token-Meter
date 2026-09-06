@@ -4,6 +4,13 @@ import Testing
 
 @Suite("Floating strip preferences and idle folding")
 struct FloatingStripPreferencesTests {
+    @Test func unknownFieldsDoNotEraseRecognizedPreferences() throws {
+        let data = Data(#"{"density":"future","foldDelay":5,"orderedProviders":["codex","future","claude"],"hiddenProviders":["claude"]}"#.utf8)
+        let value = try JSONDecoder().decode(FloatingStripPreferences.self, from: data)
+        #expect(value.density == .compact)
+        #expect(value.foldDelay == .fiveSeconds)
+        #expect(value.visibleProviders == [.codex, .deepSeek])
+    }
     @Test func restoresDefaultsAndSanitizesLayout() throws {
         let suite = UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!

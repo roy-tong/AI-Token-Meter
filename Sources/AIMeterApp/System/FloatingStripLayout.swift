@@ -7,6 +7,20 @@ struct FloatingStripResolvedPlacement: Equatable {
 }
 
 enum FloatingStripLayout {
+    // Saved positions use the original 356pt island as their stable reference.
+    // Changing density/provider count must not reinterpret the travel fraction.
+    static func anchoredFrame(in visibleFrame: CGRect, size: CGSize, edge: FloatingStripEdge, normalizedCenterY: Double) -> CGRect {
+        let reference = stripFrame(in: visibleFrame, size: CGSize(width: size.width, height: min(356, visibleFrame.height)), edge: edge, normalizedCenterY: normalizedCenterY)
+        return CGRect(x: reference.minX, y: min(max(reference.midY - size.height / 2, visibleFrame.minY), max(visibleFrame.minY, visibleFrame.maxY - size.height)), width: size.width, height: size.height)
+    }
+    static func anchorNormalizedY(for frame: CGRect, in visibleFrame: CGRect) -> Double {
+        let height = min(356, visibleFrame.height)
+        return normalizedCenterY(for: CGRect(x: frame.minX, y: frame.midY - height / 2, width: frame.width, height: height), in: visibleFrame)
+    }
+    static func foldedFrame(from expanded: CGRect, edge: FloatingStripEdge) -> CGRect {
+        CGRect(x: edge == .left ? expanded.minX : expanded.maxX - 12,
+               y: expanded.midY - 48, width: 12, height: 96)
+    }
     static let detailGap: CGFloat = 9
     static let detailScreenInset: CGFloat = 8
 

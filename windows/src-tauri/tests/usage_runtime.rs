@@ -13,6 +13,38 @@ use ai_token_meter_windows::persistence::{SnapshotCache, UsageRuntime};
 const NOW: &str = "2026-09-03T12:00:00Z";
 
 #[test]
+fn retry_reason_restores_with_or_without_cache_but_cannot_override_started_generation() {
+    let directory = tempdir().unwrap();
+    let cache = SnapshotCache::new(directory.path());
+    cache.save(&fixture(ProviderId::Claude)).unwrap();
+    let runtime = UsageRuntime::load(cache, NOW);
+    for provider in [ProviderId::Claude, ProviderId::Codex] {
+        assert!(runtime.restore_deferred(provider, CollectionError::AuthenticationRequired, NOW));
+    }
+    assert_eq!(
+        runtime
+            .snapshot(ProviderId::Claude)
+            .status_message
+            .as_deref(),
+        Some("Cached · sign in required")
+    );
+    assert_eq!(
+        runtime.snapshot(ProviderId::Codex).status,
+        UsageStatus::AuthenticationRequired
+    );
+    runtime.begin_refresh(ProviderId::Claude);
+    assert!(!runtime.restore_deferred(
+        ProviderId::Claude,
+        CollectionError::AuthenticationRequired,
+        NOW
+    ));
+    assert_eq!(
+        runtime.snapshot(ProviderId::Claude).status,
+        UsageStatus::Refreshing
+    );
+}
+
+#[test]
 fn startup_loads_each_valid_cache_as_cached_without_inventing_missing_data() {
     let directory = tempdir().expect("temporary directory");
     let cache = SnapshotCache::new(directory.path());

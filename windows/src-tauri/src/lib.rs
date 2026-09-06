@@ -78,6 +78,11 @@ pub struct RuntimeState {
     settings_path: Option<PathBuf>,
     pub(crate) meter_enabled: Arc<AtomicBool>,
     meter_drag: Arc<crate::platform::windows::meter_drag::MeterDragGate>,
+    pub(crate) strip_folded: AtomicBool,
+    pub(crate) strip_pointer: AtomicBool,
+    pub(crate) strip_focus: AtomicBool,
+    pub(crate) strip_menu: AtomicBool,
+    pub(crate) strip_reset: AtomicBool,
     deepseek_history:
         Arc<Mutex<crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime>>,
     pub(crate) detail_state: Mutex<DetailState>,
@@ -91,10 +96,21 @@ impl Default for RuntimeState {
         let (settings, settings_path) = load_settings();
         Self {
             usage: Arc::new(load_usage_runtime()),
-            refresh_coordinator: Arc::new(crate::collectors::refresh::RefreshCoordinator::new()),
+            refresh_coordinator: Arc::new(
+                crate::collectors::refresh::RefreshCoordinator::with_backoff_path(
+                    settings_path
+                        .as_ref()
+                        .map(|p| p.with_file_name("refresh-backoff.json")),
+                ),
+            ),
             settings: Mutex::new(settings),
             settings_path,
             meter_enabled: Arc::new(AtomicBool::new(true)),
+            strip_folded: AtomicBool::new(false),
+            strip_pointer: AtomicBool::new(false),
+            strip_focus: AtomicBool::new(false),
+            strip_menu: AtomicBool::new(false),
+            strip_reset: AtomicBool::new(false),
             meter_drag: Arc::new(crate::platform::windows::meter_drag::MeterDragGate::default()),
             deepseek_history: Arc::new(Mutex::new(
                 crate::platform::windows::deepseek_webview::DeepSeekHistoryWindowRuntime::default(),
@@ -356,14 +372,19 @@ fn set_meter_edge(
     let meter = app
         .get_webview_window(METER_WINDOW_LABEL)
         .ok_or_else(|| "The meter window is unavailable".to_owned())?;
+    let normalized_y = f64::from(
+        state
+            .app_settings_snapshot()
+            .meter_vertical_per_mille
+            .min(1000),
+    ) / 1000.0;
+    place_meter(&meter, edge_from_settings(edge), normalized_y)
+        .map_err(|_| "The meter could not be moved".to_owned())?;
     let mut settings = state
         .settings
         .lock()
         .map_err(|_| "Settings are temporarily unavailable".to_owned())?;
     settings.edge = edge;
-    let normalized_y = f64::from(settings.meter_vertical_per_mille.min(1000)) / 1000.0;
-    place_meter(&meter, edge_from_settings(edge), normalized_y)
-        .map_err(|_| "The meter could not be moved".to_owned())?;
     settings.meter_monitor_id = current_monitor_identifier(&meter).ok().flatten();
     persist_settings(state.settings_path.as_deref(), &settings)?;
     app.emit("meter-edge-changed", edge)
@@ -626,6 +647,9 @@ fn close_provider_detail(
 
 fn handle_detail_focus_lost(app: &tauri::AppHandle) {
     let state = app.state::<RuntimeState>();
+    if state.strip_menu.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
     let Ok(mut detail_state) = state.detail_state.lock() else {
         return;
     };
@@ -725,12 +749,21 @@ async fn service_account_status(
     let checked_at = current_timestamp();
     #[cfg(windows)]
     {
-        return Ok(crate::accounts::windows_service::read_one(
+        let status = crate::accounts::windows_service::read_one(
             provider_id,
             &checked_at,
             _state.app_settings_snapshot(),
         )
-        .await);
+        .await;
+        if provider_id != ProviderId::DeepSeek
+            && status.connection_state
+                == crate::accounts::service_status::ServiceAccountConnectionState::Connected
+        {
+            _state
+                .refresh_coordinator
+                .clear_authentication_backoff(provider_id);
+        }
+        return Ok(status);
     }
     #[cfg(not(windows))]
     {
@@ -811,6 +844,9 @@ async fn replace_deepseek_api_key(
             .map_err(|error| error.to_string())?;
         let generation = state.usage.begin_refresh(ProviderId::DeepSeek);
         state
+            .refresh_coordinator
+            .clear_authentication_backoff(ProviderId::DeepSeek);
+        state
             .usage
             .complete_success(ProviderId::DeepSeek, generation, snapshot);
         let _ = app.emit(
@@ -857,10 +893,11 @@ fn persist_settings(path: Option<&std::path::Path>, settings: &AppSettings) -> R
 fn load_settings() -> (AppSettings, Option<PathBuf>) {
     #[cfg(windows)]
     if let Ok(paths) = crate::persistence::AppStoragePaths::discover() {
-        let settings = AtomicJsonStore::read::<AppSettings>(&paths.settings_file)
+        let mut settings = AtomicJsonStore::read::<AppSettings>(&paths.settings_file)
             .ok()
             .flatten()
             .unwrap_or_default();
+        settings.strip_preferences.normalize();
         return (settings, Some(paths.settings_file));
     }
     (AppSettings::default(), None)
@@ -884,11 +921,134 @@ fn current_timestamp() -> String {
         .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_owned())
 }
 
+#[tauri::command]
+fn set_strip_preferences(
+    app: tauri::AppHandle,
+    state: State<'_, RuntimeState>,
+    mut value: crate::platform::windows::strip_preferences::StripPreferences,
+) -> Result<(), String> {
+    value.normalize();
+    let updated = {
+        let mut settings = state.settings.lock().map_err(|_| "Settings unavailable")?;
+        let mut candidate = settings.clone();
+        candidate.strip_preferences = value;
+        persist_settings(state.settings_path.as_deref(), &candidate)?;
+        *settings = candidate.clone();
+        candidate
+    };
+    let selected = state
+        .detail_state
+        .lock()
+        .ok()
+        .and_then(|detail| detail.current_provider());
+    if let Some(provider) = selected {
+        let id = match provider {
+            ProviderId::Claude => "claude",
+            ProviderId::Codex => "codex",
+            ProviderId::DeepSeek => "deepseek",
+        };
+        if !updated
+            .strip_preferences
+            .visible_providers()
+            .iter()
+            .any(|p| p == id)
+        {
+            close_provider_detail(app.clone(), app.state())?;
+        }
+    }
+    state
+        .strip_folded
+        .store(false, std::sync::atomic::Ordering::Release);
+    state
+        .strip_reset
+        .store(true, std::sync::atomic::Ordering::Release);
+    app.emit("strip-folded", false)
+        .map_err(|_| "Window update failed")?;
+    crate::platform::windows::strip_runtime::restore(&app).map_err(|_| "Window resize failed")?;
+    app.emit("app-settings-changed", updated)
+        .map_err(|_| "Settings update failed".to_owned())
+}
+
+#[tauri::command]
+fn strip_interaction(state: State<'_, RuntimeState>, kind: String, active: bool) {
+    use std::sync::atomic::Ordering;
+    match kind.as_str() {
+        "pointer" => state.strip_pointer.store(active, Ordering::Release),
+        "focus" => state.strip_focus.store(active, Ordering::Release),
+        _ => {}
+    }
+}
+
+#[tauri::command]
+fn strip_folded(state: State<'_, RuntimeState>) -> bool {
+    state
+        .strip_folded
+        .load(std::sync::atomic::Ordering::Acquire)
+}
+
+#[tauri::command]
+async fn strip_context_menu(app: tauri::AppHandle) -> Result<(), String> {
+    use std::sync::atomic::Ordering;
+    use tauri::menu::{ContextMenu, MenuBuilder, MenuItemBuilder};
+    let state = app.state::<RuntimeState>();
+    let refreshing = state
+        .usage
+        .snapshots()
+        .iter()
+        .any(|s| s.status == crate::domain::UsageStatus::Refreshing);
+    let refresh = MenuItemBuilder::with_id("strip-refresh", "Refresh now")
+        .enabled(!refreshing)
+        .build(&app)
+        .map_err(|_| "Menu unavailable")?;
+    let menu = MenuBuilder::new(&app)
+        .item(&refresh)
+        .text("strip-hide", "Hide for 1 hour")
+        .separator()
+        .text("strip-settings", "Settings…")
+        .text("strip-quit", "Quit AI Token Meter")
+        .build()
+        .map_err(|_| "Menu unavailable")?;
+    let window = app
+        .get_webview_window(METER_WINDOW_LABEL)
+        .ok_or("Meter unavailable")?;
+    state.strip_menu.store(true, Ordering::Release);
+    let result = menu
+        .popup(window.as_ref().window())
+        .map_err(|_| "Menu could not open".to_owned());
+    state.strip_menu.store(false, Ordering::Release);
+    result
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "strip-refresh" => {
+                let _ = app.emit("refresh-requested", ());
+            }
+            "strip-hide" => {
+                let state = app.state::<RuntimeState>();
+                let mut value = state.app_settings_snapshot().strip_preferences;
+                value.hidden_until = Some(time::OffsetDateTime::now_utc().unix_timestamp() + 3600);
+                let _ = set_strip_preferences(app.clone(), state, value);
+                let _ = hide_detail_window(app);
+                if let Some(meter) = app.get_webview_window(METER_WINDOW_LABEL) {
+                    let _ = meter.hide();
+                }
+            }
+            "strip-settings" => {
+                let _ = show_settings_window(app);
+                let _ = app.emit("settings-tab-requested", "Appearance");
+            }
+            "strip-quit" => app.exit(0),
+            _ => {}
+        })
         .manage(RuntimeState::default())
         .invoke_handler(tauri::generate_handler![
+            set_strip_preferences,
+            strip_interaction,
+            strip_folded,
+            strip_context_menu,
             usage_snapshots,
             show_provider_detail,
             close_provider_detail,
@@ -934,6 +1094,7 @@ pub fn run() {
             app.state::<RuntimeState>()
                 .migrate_meter_monitor_id(monitor_id.as_deref(), migrated_monitor_id);
             crate::platform::windows::tray::install(app.handle())?;
+            crate::platform::windows::strip_runtime::start(app.handle().clone());
             #[cfg(windows)]
             {
                 crate::collectors::application::start(app.handle());

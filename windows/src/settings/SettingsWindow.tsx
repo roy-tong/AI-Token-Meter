@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import type { ProviderId } from "../state/usage"
+import { defaultStripPreferences, type StripPreferences } from "../state/stripPreferences"
 
 const tabs = ["Appearance", "Monitoring", "Services", "About"] as const
 const fonts = [
@@ -15,6 +16,8 @@ const fonts = [
 ]
 
 type SettingsWindowProps = {
+  stripPreferences?: StripPreferences
+  onStripPreferencesChange?: (value: StripPreferences) => void
   displayFont: string
   onDisplayFontChange: (font: string) => void
   edge?: "left" | "right"
@@ -79,6 +82,8 @@ const defaultUpdateState: UpdateState = {
 }
 
 export function SettingsWindow({
+  stripPreferences = defaultStripPreferences,
+  onStripPreferencesChange = () => {},
   displayFont,
   onDisplayFontChange,
   edge = "right",
@@ -127,6 +132,51 @@ export function SettingsWindow({
       <div className="settings-content">
         {activeTab === "Appearance" ? (
           <>
+            <SettingRow label="Floating strip size" hint="Compact saves space; Comfortable keeps larger rings.">
+              <select aria-label="Floating strip size" value={stripPreferences.density}
+                onChange={e => onStripPreferencesChange({...stripPreferences, density: e.target.value as StripPreferences["density"]})}>
+                <option value="compact">Compact</option><option value="comfortable">Comfortable</option>
+              </select>
+            </SettingRow>
+            <SettingRow label="Fold when idle" hint="Interaction, open details and refreshes keep the meter expanded.">
+              <select aria-label="Fold when idle" value={stripPreferences.foldDelay}
+                onChange={e => onStripPreferencesChange({...stripPreferences, foldDelay: Number(e.target.value)})}>
+                <option value={0}>Never</option><option value={5}>After 5 seconds</option><option value={15}>After 15 seconds</option>
+              </select>
+            </SettingRow>
+            <SettingRow label="Floating strip services" hint="Keep at least one visible. Hidden services continue monitoring.">
+              <div>
+                {stripPreferences.orderedProviders.map((id, index) => {
+                  const visible = !stripPreferences.hiddenProviders.includes(id)
+                  const label = id === "claude" ? "Claude Code" : id === "codex" ? "OpenAI Codex" : "DeepSeek"
+                  const move = (offset: number) => {
+                    const order = [...stripPreferences.orderedProviders]
+                    ;[order[index], order[index+offset]] = [order[index+offset], order[index]]
+                    onStripPreferencesChange({...stripPreferences, orderedProviders: order})
+                  }
+                  return <div key={id} className="strip-service-row" draggable
+                    onDragStart={event => event.dataTransfer.setData("text/plain", id)}
+                    onDragOver={event => event.preventDefault()}
+                    onDrop={event => {
+                      event.preventDefault()
+                      const source = event.dataTransfer.getData("text/plain") as typeof id
+                      if (source === id || !stripPreferences.orderedProviders.includes(source)) return
+                      const order = stripPreferences.orderedProviders.filter(item => item !== source)
+                      order.splice(index, 0, source)
+                      onStripPreferencesChange({...stripPreferences, orderedProviders: order})
+                    }}>
+                    <label><input type="checkbox" checked={visible}
+                      disabled={visible && stripPreferences.hiddenProviders.length === 2}
+                      onChange={e => onStripPreferencesChange({...stripPreferences,
+                        hiddenProviders: e.target.checked ? stripPreferences.hiddenProviders.filter(p => p !== id) : [...stripPreferences.hiddenProviders, id]})} />{label}</label>
+                    <button type="button" aria-label={`Move ${label} up`} disabled={index === 0} onClick={() => move(-1)}>↑</button>
+                    <button type="button" aria-label={`Move ${label} down`} disabled={index === 2} onClick={() => move(1)}>↓</button>
+                  </div>
+                })}
+                <button type="button" onClick={() => onStripPreferencesChange({...stripPreferences,
+                  orderedProviders: defaultStripPreferences.orderedProviders, hiddenProviders: []})}>Restore default order</button>
+              </div>
+            </SettingRow>
             <SettingRow label="Display font" hint="Applies to the meter, menu and detail panels. Settings always uses the system font.">
               <select aria-label="Display font" onChange={(event) => onDisplayFontChange(event.target.value)} value={displayFont}>
                 {fonts.map((font) => <option key={font}>{font}</option>)}

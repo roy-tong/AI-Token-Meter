@@ -12,6 +12,8 @@ pub mod executable_locator;
 pub mod meter_drag;
 pub mod monitor;
 pub mod process;
+pub mod strip_preferences;
+pub mod strip_runtime;
 pub mod tray;
 pub mod window_controller;
 pub mod wsl;

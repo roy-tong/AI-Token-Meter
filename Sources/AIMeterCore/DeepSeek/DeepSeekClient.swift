@@ -73,6 +73,8 @@ public struct DeepSeekClient: Sendable {
         case 401:
             throw UsageCollectionError.authenticationRequired
         case 429:
+            let delay = RetryAfterParser.seconds(httpResponse.value(forHTTPHeaderField: "Retry-After"))
+            if delay > 0 { throw UsageCollectionError.rateLimitedRetryAfter(delay) }
             throw UsageCollectionError.rateLimited
         default:
             throw UsageCollectionError.transportFailure

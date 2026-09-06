@@ -4,6 +4,16 @@
 
 ## Appearance
 
+### 紧凑浮动条（开发分支，尚未发布）
+
+- **Floating strip size**：默认 Compact（78×286），可选 Comfortable（108×356）；隐藏一项时高度自动缩短。原背景和三个Logo保留，切换不改变保存的显示器与位置中心。
+- **Fold when idle**：默认 Never，可选5秒或15秒。折叠成窄把手，移入指针即可展开。操作详情、拖动、刷新和读屏期间不自动折叠。
+- **Floating strip services**：勾选显示，拖动或点击上下箭头排序；必须至少显示一项。Restore default order恢复三项和默认顺序。隐藏只影响浮动条，菜单、采集与Widget不受影响。
+- 右键浮动条可 **Refresh now**、**Hide for 1 hour**、打开Appearance或退出。临时隐藏可跨重启恢复剩余时长；菜单栏/托盘的 **Show Floating Strip Now** 可立即取消隐藏。
+- 外环仍表示额度，内环仅提示刷新或需登录/设置；失败时保留成功数据，并显示Cached及距上次成功更新时间。限流时反复点击刷新不会绕过等待。
+
+以上源码改动的发布状态与实机验证见[开发记录](../development/2026-09-06-compact-progressive-strip.md)。
+
 ### Desktop Widget
 
 Widget 尺寸与摆放由 macOS 桌面“编辑小组件”管理，因此 Settings 不重复提供尺寸或刷新频率选项。Widget 始终使用系统字体和深海背景，不继承浮动条的 Antonio/DIN 选择；主应用刷新或 DeepSeek 余额基准变化后会发布脱敏快照并请求系统更新时间线。

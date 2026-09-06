@@ -1,5 +1,9 @@
 use crate::domain::ProviderId;
 
+// Legacy Windows installs saved travel fractions against a 450 logical-pixel window.
+// Keep that reference independent of the new visual density and provider count.
+pub const POSITION_REFERENCE_HEIGHT: f64 = 450.0;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Edge {
     Left,
@@ -94,6 +98,46 @@ pub struct WindowPlacement {
 }
 
 impl WindowPlacement {
+    pub fn anchored_meter(
+        work: PhysicalRect,
+        size: PhysicalSize,
+        reference_height: u32,
+        edge: Edge,
+        fraction: f64,
+    ) -> Self {
+        let reference = Self::meter(
+            work,
+            PhysicalSize::new(size.width, reference_height.min(work.size.height)),
+            edge,
+            fraction,
+        );
+        let mut value = reference.folded(size, edge);
+        value.origin.y = value.origin.y.clamp(
+            work.origin.y,
+            work.bottom()
+                .saturating_sub(unsigned_to_i32(size.height))
+                .max(work.origin.y),
+        );
+        value
+    }
+    pub fn folded(self, size: PhysicalSize, edge: Edge) -> Self {
+        let x = if edge == Edge::Left {
+            self.origin.x
+        } else {
+            self.origin
+                .x
+                .saturating_add(unsigned_to_i32(self.size.width))
+                .saturating_sub(unsigned_to_i32(size.width))
+        };
+        Self::new(
+            x,
+            self.origin
+                .y
+                .saturating_add(unsigned_to_i32(self.size.height) / 2)
+                .saturating_sub(unsigned_to_i32(size.height) / 2),
+            size,
+        )
+    }
     pub const fn new(x: i32, y: i32, size: PhysicalSize) -> Self {
         Self {
             origin: PhysicalPoint { x, y },
@@ -431,7 +475,15 @@ pub fn place_meter(
         meter_size.width,
         meter_size.height,
     ))?;
-    let placement = WindowPlacement::meter(work, meter_size, edge, normalized_y);
+    let expanded_size = fitted_meter_size(work, expanded_meter_size(meter)?);
+    let expanded = WindowPlacement::anchored_meter(
+        work,
+        expanded_size,
+        reference_meter_height(meter)?,
+        edge,
+        normalized_y,
+    );
+    let placement = expanded.folded(meter_size, edge);
     meter.set_position(tauri::PhysicalPosition::new(
         placement.origin.x,
         placement.origin.y,
@@ -510,8 +562,16 @@ pub fn snap_meter_after_drag(meter: &tauri::WebviewWindow) -> tauri::Result<(Edg
     } else {
         Edge::Right
     };
-    let normalized_y = WindowPlacement::normalized_y(work, meter_size, origin.y);
-    let placement = WindowPlacement::meter(work, meter_size, edge, normalized_y);
+    let reference_height = reference_meter_height(meter)?.min(work.size.height);
+    let reference_y =
+        origin.y + unsigned_to_i32(meter_size.height) / 2 - unsigned_to_i32(reference_height) / 2;
+    let normalized_y = WindowPlacement::normalized_y(
+        work,
+        PhysicalSize::new(meter_size.width, reference_height),
+        reference_y,
+    );
+    let placement =
+        WindowPlacement::anchored_meter(work, meter_size, reference_height, edge, normalized_y);
     meter.set_position(tauri::PhysicalPosition::new(
         placement.origin.x,
         placement.origin.y,
@@ -608,7 +668,15 @@ fn position_meter_on_preferred(
         meter_size.width,
         meter_size.height,
     ))?;
-    let placement = WindowPlacement::meter(work, meter_size, edge, normalized_y);
+    let expanded_size = fitted_meter_size(work, expanded_meter_size(meter)?);
+    let placement = WindowPlacement::anchored_meter(
+        work,
+        expanded_size,
+        reference_meter_height(meter)?,
+        edge,
+        normalized_y,
+    )
+    .folded(meter_size, edge);
     meter.set_position(tauri::PhysicalPosition::new(
         placement.origin.x,
         placement.origin.y,
@@ -755,9 +823,33 @@ fn from_tauri_rect(rect: &tauri::PhysicalRect<i32, u32>) -> PhysicalRect {
 }
 
 fn desired_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSize> {
+    use tauri::Manager;
+    let state = meter.state::<crate::RuntimeState>();
+    let prefs = state.app_settings_snapshot().strip_preferences;
+    let (width, height) = prefs.logical_size(
+        state
+            .strip_folded
+            .load(std::sync::atomic::Ordering::Acquire),
+    );
     let desired: tauri::PhysicalSize<u32> =
-        tauri::LogicalSize::new(116.0, 450.0).to_physical(meter.scale_factor()?);
+        tauri::LogicalSize::new(width, height).to_physical(meter.scale_factor()?);
     Ok(PhysicalSize::new(desired.width, desired.height))
+}
+
+fn expanded_meter_size(meter: &tauri::WebviewWindow) -> tauri::Result<PhysicalSize> {
+    use tauri::Manager;
+    let state = meter.state::<crate::RuntimeState>();
+    let (width, height) = state
+        .app_settings_snapshot()
+        .strip_preferences
+        .logical_size(false);
+    let size: tauri::PhysicalSize<u32> =
+        tauri::LogicalSize::new(width, height).to_physical(meter.scale_factor()?);
+    Ok(PhysicalSize::new(size.width, size.height))
+}
+
+fn reference_meter_height(meter: &tauri::WebviewWindow) -> tauri::Result<u32> {
+    Ok((POSITION_REFERENCE_HEIGHT * meter.scale_factor()?).round() as u32)
 }
 
 #[cfg(test)]

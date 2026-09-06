@@ -86,6 +86,12 @@ pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
             .collect();
         let results = coordinator.refresh_all(requests, priority);
         for (provider, result) in results {
+            if let RefreshResult::Deferred(error) = result {
+                if runtime.restore_deferred(provider, error, &now_rfc3339()) {
+                    let _ = app.emit("snapshot-updated", runtime.snapshot(provider));
+                }
+                continue;
+            }
             let Some(generation) = generations
                 .lock()
                 .unwrap_or_else(|lock| lock.into_inner())
@@ -101,7 +107,13 @@ pub fn trigger(app: &AppHandle, priority: RefreshPriority) {
                 RefreshResult::Failed(error) => {
                     runtime.complete_failure(provider, generation, error, &now_rfc3339())
                 }
-                RefreshResult::AlreadyRefreshing | RefreshResult::Cancelled => false,
+                RefreshResult::Cancelled => runtime.complete_failure(
+                    provider,
+                    generation,
+                    CollectionError::Cancelled,
+                    &now_rfc3339(),
+                ),
+                RefreshResult::AlreadyRefreshing | RefreshResult::Deferred(_) => false,
             };
             if applied {
                 let snapshot = runtime.snapshot(provider);

@@ -170,7 +170,7 @@ impl UsageRuntime {
             .publication
             .lock()
             .unwrap_or_else(|lock| lock.into_inner());
-        if error == CollectionError::Cancelled || !self.is_current(provider, generation) {
+        if !self.is_current(provider, generation) {
             return false;
         }
         let previous = self.snapshot(provider);
@@ -188,6 +188,45 @@ impl UsageRuntime {
             )
         };
         self.replace(provider, replacement);
+        true
+    }
+
+    /// Restore the saved retry reason only before this process has started a
+    /// generation. A late deferred response must never replace a newer result.
+    pub fn restore_deferred(
+        &self,
+        provider: ProviderId,
+        error: CollectionError,
+        now: &str,
+    ) -> bool {
+        let _publication = self
+            .publication
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner());
+        if self
+            .generations
+            .lock()
+            .unwrap_or_else(|lock| lock.into_inner())
+            .contains_key(&provider)
+        {
+            return false;
+        }
+        let mut previous = self.snapshot(provider);
+        if has_visible_data(&previous) {
+            previous.status = UsageStatus::Cached;
+            previous.status_message = Some(format!("Cached · {}", error_message(error)));
+            self.replace(provider, previous);
+        } else {
+            self.replace(
+                provider,
+                status_snapshot(
+                    provider,
+                    status_for_error(error),
+                    now,
+                    Some(error_message(error)),
+                ),
+            );
+        }
         true
     }
 
@@ -243,9 +282,10 @@ fn status_for_error(error: CollectionError) -> UsageStatus {
         CollectionError::UnrecognizedOutput | CollectionError::InvalidResponse => {
             UsageStatus::UnrecognizedOutput
         }
-        CollectionError::TimedOut | CollectionError::Transport | CollectionError::Cancelled => {
-            UsageStatus::Unavailable
-        }
+        CollectionError::TimedOut
+        | CollectionError::Transport
+        | CollectionError::Cancelled
+        | CollectionError::RateLimited(_) => UsageStatus::Unavailable,
     }
 }
 
@@ -258,6 +298,7 @@ fn error_message(error: CollectionError) -> &'static str {
         CollectionError::TimedOut => "refresh timed out",
         CollectionError::Transport => "refresh unavailable",
         CollectionError::Cancelled => "refresh cancelled",
+        CollectionError::RateLimited(_) => "rate limited; waiting before retry",
     }
 }
 

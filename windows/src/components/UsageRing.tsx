@@ -18,11 +18,15 @@ export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingP
     "--provider-accent": contract?.accentColor ?? "#7386FF",
     "--usage-progress": percent == null ? "0deg" : `${percent * 3.6}deg`,
   } as CSSProperties
+  const operation = snapshot.status === "refreshing" ? "refreshing"
+    : ["authenticationRequired", "setupRequired", "notInstalled"].includes(snapshot.status)
+      || ["Cached · sign in required", "Cached · setup required"].includes(snapshot.statusMessage ?? "") ? "waiting" : "idle"
 
   return (
     <button
       aria-label={`${snapshot.displayName} usage`}
       aria-pressed={selected}
+      aria-description={operation === "refreshing" ? "Refreshing" : operation === "waiting" ? "Action required" : undefined}
       className={`usage-ring usage-ring--${snapshot.status}`}
       onClick={onActivate}
       style={style}
@@ -40,6 +44,8 @@ export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingP
           <ProviderLogo provider={snapshot.providerId} />
         </span>
       </span>
+      {operation !== "idle" && <span aria-hidden="true" className={`usage-ring__operation usage-ring__operation--${operation}`} />}
+      {operation === "waiting" && <span aria-hidden="true" className="usage-ring__action">!</span>}
     </button>
   )
 }

@@ -58,6 +58,7 @@ pub enum RefreshPriority {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RefreshResult {
+    Deferred(CollectionError),
     Snapshot(Box<UsageSnapshot>),
     Failed(CollectionError),
     AlreadyRefreshing,
@@ -66,12 +67,14 @@ pub enum RefreshResult {
 
 #[derive(Default)]
 struct RefreshState {
+    backoffs: HashMap<ProviderId, super::backoff::Backoff>,
     in_flight: HashMap<ProviderId, Arc<CancellationToken>>,
     active_count: usize,
     suspended: bool,
 }
 
 pub struct RefreshCoordinator {
+    backoff_path: Option<std::path::PathBuf>,
     state: Mutex<RefreshState>,
     drained: Condvar,
 }
@@ -79,7 +82,9 @@ pub struct RefreshCoordinator {
 impl Default for RefreshCoordinator {
     fn default() -> Self {
         Self {
+            backoff_path: None,
             state: Mutex::new(RefreshState {
+                backoffs: HashMap::new(),
                 in_flight: HashMap::new(),
                 active_count: 0,
                 suspended: false,
@@ -94,6 +99,39 @@ impl RefreshCoordinator {
         Self::default()
     }
 
+    pub fn with_backoff_path(path: Option<std::path::PathBuf>) -> Self {
+        let mut value = Self::new();
+        if let Some(path) = &path {
+            let backoffs = crate::persistence::AtomicJsonStore::read(path)
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+            value.state.get_mut().unwrap().backoffs = backoffs;
+        }
+        value.backoff_path = path;
+        value
+    }
+
+    pub fn clear_authentication_backoff(&self, provider: ProviderId) {
+        let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
+        if state
+            .backoffs
+            .get(&provider)
+            .is_some_and(|b| b.kind == "authentication")
+        {
+            state.backoffs.remove(&provider);
+            self.persist_backoffs(&state);
+        }
+    }
+
+    fn persist_backoffs(&self, state: &RefreshState) {
+        if let Some(path) = &self.backoff_path
+            && crate::persistence::AtomicJsonStore::write(path, &state.backoffs).is_err()
+        {
+            eprintln!("AI Token Meter: refresh retry state could not be saved");
+        }
+    }
+
     pub fn refresh(
         &self,
         request: ProviderRefreshRequest,
@@ -104,6 +142,24 @@ impl RefreshCoordinator {
             let mut state = self.state.lock().unwrap_or_else(|lock| lock.into_inner());
             if state.suspended {
                 return RefreshResult::Cancelled;
+            }
+            let now = time::OffsetDateTime::now_utc().unix_timestamp();
+            for backoff in state.backoffs.values_mut() {
+                backoff.normalize_clock(now);
+            }
+            self.persist_backoffs(&state);
+            if state.backoffs.get(&request.provider).is_some_and(|b| {
+                !b.eligible(
+                    time::OffsetDateTime::now_utc().unix_timestamp(),
+                    priority == RefreshPriority::Manual,
+                )
+            }) {
+                let kind = state.backoffs[&request.provider].kind.as_str();
+                return RefreshResult::Deferred(match kind {
+                    "authentication" => CollectionError::AuthenticationRequired,
+                    "rateLimited" => CollectionError::RateLimited(0),
+                    _ => CollectionError::Transport,
+                });
             }
             if let Some(existing) = state.in_flight.get(&request.provider) {
                 if priority == RefreshPriority::Scheduled {
@@ -128,11 +184,35 @@ impl RefreshCoordinator {
         if state.active_count == 0 {
             self.drained.notify_all();
         }
-        drop(state);
-
         if token.is_cancelled() {
             return RefreshResult::Cancelled;
         }
+        let error = match &outcome {
+            Err(error) if *error != CollectionError::Cancelled => Some(*error),
+            Ok(snapshot) => match snapshot.status {
+                crate::domain::UsageStatus::NotInstalled
+                | crate::domain::UsageStatus::SetupRequired => Some(CollectionError::SetupRequired),
+                crate::domain::UsageStatus::AuthenticationRequired => {
+                    Some(CollectionError::AuthenticationRequired)
+                }
+                crate::domain::UsageStatus::Fresh => None,
+                _ => Some(CollectionError::Transport),
+            },
+            _ => None,
+        };
+        if let Some(error) = error {
+            let next = super::backoff::Backoff::failure(
+                state.backoffs.get(&request.provider),
+                request.provider,
+                error,
+                time::OffsetDateTime::now_utc().unix_timestamp(),
+            );
+            state.backoffs.insert(request.provider, next);
+        } else if outcome.is_ok() {
+            state.backoffs.remove(&request.provider);
+        }
+        self.persist_backoffs(&state);
+        drop(state);
         match outcome {
             Ok(snapshot) => RefreshResult::Snapshot(Box::new(snapshot)),
             Err(CollectionError::Cancelled) => RefreshResult::Cancelled,

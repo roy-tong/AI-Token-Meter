@@ -1,11 +1,13 @@
 # 当前项目状态
 
-- **事实快照：** 2026-09-04
+- **事实快照：** 2026-09-06
 - **产品：** AI Token Meter
 - **应用版本：** 当前双平台 Preview `0.3.0-preview.3`（build `10`）；最新稳定版 `0.2.2`（build `6`）
 - **维护分支：** `main`
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
+
+**未发布开发进展：** `codex/compact-progressive-strip` 正在验证紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避；不改变上方已发布版本。自动化与真实桌面验收分开记录，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)。
 
 ## 一句话定位
 

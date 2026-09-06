@@ -52,25 +52,25 @@ button {
 
 .meter-stage--strip-only .floating-strip {
   border-radius: 0;
-  clip-path: url("#meter-clip-right");
+  clip-path: url("#strip-clip-right");
   height: 100%;
   min-height: 0;
-  padding: min(6.67vh, 14.66vw);
+  padding: 0;
   width: 100%;
 }
 
 .meter-stage--strip-only.meter-edge--left .floating-strip {
-  clip-path: url("#meter-clip-left");
+  clip-path: url("#strip-clip-left");
 }
 
 .meter-stage--strip-only .usage-ring {
-  height: min(18.22vh, 70.69vw);
-  width: min(18.22vh, 70.69vw);
+  height: var(--strip-ring);
+  width: var(--strip-ring);
 }
 
 .meter-stage--strip-only .provider-logo--uniform {
-  height: min(7.56vh, 29.31vw);
-  width: min(7.56vh, 29.31vw);
+  height: var(--strip-logo);
+  width: var(--strip-logo);
 }
 
 .meter-clip-paths {
@@ -79,6 +79,25 @@ button {
   position: absolute;
   width: 0;
 }
+
+.floating-strip[data-density="compact"] { background-image: linear-gradient(rgb(0 0 0 / 46%), rgb(0 0 0 / 46%)), url("/floating-strip-deep-sea.png"); }
+.floating-strip:hover .floating-strip__drag-handle { background: rgb(255 255 255 / 34%); }
+.floating-strip .provider-logo--uniform { width: var(--strip-logo, 21px); height: var(--strip-logo, 21px); }
+.meter-edge--left .floating-strip { transform: scaleX(-1); }
+.meter-edge--left .floating-strip > * { transform: scaleX(-1); }
+.meter-edge--left .floating-strip > .floating-strip__drag-handle { transform: translateX(-50%) scaleX(-1); }
+.meter-stage--strip-only.meter-edge--left .floating-strip { clip-path: url("#strip-clip-right"); }
+.meter-folded { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #040b18 url("/floating-strip-deep-sea.png") center/cover; padding: 0; display: grid; place-items: center; }
+.meter-folded span { width: 3px; height: 40px; border-radius: 3px; background: rgb(255 255 255 / 30%); }
+.meter-edge--left .meter-folded { transform: scaleX(-1); }
+@media (prefers-reduced-motion: no-preference) {
+  .floating-strip > .usage-ring { animation: strip-expand-in 180ms ease-out; }
+  .meter-folded { animation: strip-expand-in 160ms ease-out; }
+}
+@keyframes strip-expand-in { from { opacity: 0; } to { opacity: 1; } }
+.strip-service-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.strip-service-row label { flex: 1; }
+.strip-service-row input { margin-right: 8px; }
 
 .detail-surface {
   align-items: stretch;
@@ -114,20 +133,21 @@ button {
   background-size: cover;
   border-radius: 64px 0 0 64px;
   display: flex;
-  flex: 0 0 116px;
+  flex: 0 0 var(--strip-width, 78px);
   flex-direction: column;
-  gap: 16px;
+  gap: var(--strip-gap, 10px);
   isolation: isolate;
   justify-content: center;
-  min-height: 390px;
-  padding: 30px 17px;
+  min-height: var(--strip-height, 286px);
+  padding: 0;
+  clip-path: url("#strip-clip-right");
   position: relative;
 }
 
 .floating-strip::before,
 .floating-strip::after {
   background: inherit;
-  content: "";
+  content: none;
   height: 56px;
   position: absolute;
   right: 0;
@@ -146,14 +166,14 @@ button {
 }
 
 .floating-strip__drag-handle {
-  background: rgb(255 255 255 / 32%);
+  background: rgb(255 255 255 / 16%);
   border-radius: 99px;
-  height: 4px;
+  height: 3px;
   left: 50%;
   position: absolute;
-  top: 20px;
+  top: 35px;
   transform: translateX(-50%);
-  width: 24px;
+  width: 18px;
 }
 
 .usage-ring {
@@ -162,10 +182,10 @@ button {
   border: 0;
   border-radius: 50%;
   cursor: pointer;
-  height: 82px;
+  height: var(--strip-ring, 48px);
   padding: 0;
   position: relative;
-  width: 82px;
+  width: var(--strip-ring, 48px);
 }
 
 .usage-ring__progress {
@@ -175,7 +195,7 @@ button {
   display: flex;
   height: 100%;
   justify-content: center;
-  padding: 6px;
+  padding: var(--strip-line, 3.5px);
   transition: filter 160ms ease, transform 160ms ease;
   width: 100%;
 }
@@ -183,7 +203,7 @@ button {
 .usage-ring__core {
   align-items: center;
   background: radial-gradient(circle at 48% 35%, #121a29 0, #060b14 66%);
-  border: 3px solid rgb(255 255 255 / 9%);
+  border: 0;
   border-radius: 50%;
   display: flex;
   height: 100%;
@@ -201,9 +221,13 @@ button {
   filter: saturate(.65);
 }
 
-.usage-ring--refreshing .usage-ring__progress {
-  animation: meter-pulse 1.15s ease-in-out infinite alternate;
-}
+.usage-ring__operation { position: absolute; inset: 15%; border: 1.5px solid transparent; border-radius: 50%; pointer-events: none; }
+.usage-ring__operation--refreshing { border-top-color: #b8d9ff; animation: operation-spin 1.1s linear infinite; }
+.usage-ring__operation--waiting { border-color: #eda54b; animation: operation-wait 2.1s ease-in-out infinite alternate; }
+.usage-ring__action { position: absolute; top: 0; right: 0; background: #eda54b; color: #050a15; width: 12px; height: 12px; border-radius: 50%; font: bold 10px/12px system-ui; }
+@keyframes operation-spin { to { transform: rotate(360deg); } }
+@keyframes operation-wait { from { opacity: .25; } to { opacity: .85; } }
+@media (prefers-reduced-motion: reduce) { .usage-ring__operation { animation: none; } }
 
 .usage-ring--unavailable .usage-ring__progress,
 .usage-ring--notInstalled .usage-ring__progress,
