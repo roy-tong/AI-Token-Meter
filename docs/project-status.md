@@ -7,7 +7,7 @@
 
 本页只描述当前有效事实。功能演进过程查[开发日志](development/README.md)，需求状态查[需求台账](requirements-backlog.md)，历史取舍查[设计记录](design/README.md)。
 
-**未发布开发进展：** `codex/compact-progressive-strip` 正在验证紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避；不改变上方已发布版本。自动化与真实桌面验收分开记录，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)。
+**未发布开发进展：** 紧凑/舒适密度、闲置折叠、服务显示排序、右键菜单、状态内环和持久化退避已通过双平台CI并合入main（`c67112e`）；不改变上方已发布版本。真实Windows桌面验收仍受环境限制，见[本阶段日志](development/2026-09-06-compact-progressive-strip.md)。
 
 ## 一句话定位
 

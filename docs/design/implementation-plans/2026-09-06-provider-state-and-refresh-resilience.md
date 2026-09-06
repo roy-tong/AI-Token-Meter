@@ -38,16 +38,16 @@ expect(screen.getByRole('button', { name: /DeepSeek/ })).toHaveAccessibleDescrip
 **文件与职责：** docs/development/2026-09-06-compact-progressive-strip.md；docs/development/README.md；docs/requirements-backlog.md；README.md。
 **交付行为：** 按三份规格逐项自审；完整 Swift/Rust/frontend/合同/文档/安全检查；真实 Windows 无法在本机执行的项明确记录，不冒充完成；保存 Git 检查点。
 
-- [ ] 先为上述行为增加输入/输出测试，验证功能缺失导致失败；核心断言：
+- [x] 完整运行本机集成门禁，并保留失败和复跑证据；命令：
 ```text
 bash scripts/test.sh
 cd windows && npm test && npm run build
 cd src-tauri && cargo test
 bash scripts/check-docs.sh
 ```
-- [ ] 实现纯值策略并连接调用方。失败路径保留已保存位置和已成功数据；持久化失败记录脱敏错误。
-- [ ] Swift 使用 `bash scripts/test.sh --filter <对应测试组>`；前端使用 `cd windows && npm test`；Rust 使用 `cd windows/src-tauri && cargo test`。断言通过后检查调用链和边界。
-- [ ] 更新开发记录和复选框，运行 `git diff --check`，提交独立 Git 检查点。
+- [x] 独立审查并修复取消、时钟回拨、旧配置、重启状态、位置参考和菜单计时问题；复审无 Critical/Important。
+- [x] 本机403项Swift测试、51项前端测试、Rust测试、构建与文档/安全检查通过；CI与真实Windows桌面边界见开发日志。
+- [x] 更新开发记录和复选框，运行 `git diff --check`，保存 `4c05514`、`405d12b`、`fd6d548` 检查点。
 
 ## 验证口径
 

@@ -52,7 +52,12 @@
 - PR [#7](https://github.com/sljzdotcom/AI-Token-Meter/pull/7)：macOS首次CI `34032620030`通过；Windows首次CI `34032619977`通过前端/浏览器/构建/格式，在Windows专属分支的Clippy冗余return门禁失败，已移除并重跑。
 - `405d12b`：Windows Clippy修正、官网历史等待状态、唯一SVG裁切标识及实际浏览器对比图。
 - macOS第二轮CI `34033000263`：391项主测试通过，但既有PTY父进程退出/并发输出两项失败。本轮没有修改PTY实现或测试；本机原样完整复跑403项通过。保留失败证据，不降低断言或添加自动重试掩盖问题；后续CI重新验证。
-- 后续跨平台、退避、审查和文档提交以当前分支历史为准；CI验收后补充固定提交引用。
+- `fd6d548`：菜单暂停详情倒计时与DPI参考常量复核。该提交macOS CI [34033447189](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34033447189)全绿；PTY套件本机另连续三次12/12通过。Git历史中此前也出现过同类runner超时，当前未找到稳定复现或证据支持修改PTY生产实现。
+- Windows第二轮CI `34033000265`：Clippy已通过，既有真实ConPTY采集测试单次超时；本轮未改该采集实现或测试，继续以最终提交的完整Windows CI为门禁，不跳过用例。
+- 最终Windows CI [34033447184](https://github.com/sljzdotcom/AI-Token-Meter/actions/runs/34033447184)全绿：51项前端、浏览器密度、Rust原生测试、NSIS安装器与GUI子系统检查完成。本机Rust全量179项通过，Clippy零警告。
+- macOS Release App构建通过：完整便携资源、Sparkle嵌入与严格签名校验成功；未安装覆盖当前应用，未发布Release。Widget按既有延期决定不包含在本次验证包内。
+- PR #7于2026-09-06合入main，合并提交 `c67112e`。本轮功能代码以 `fd6d548` 为最终验证头；后续仅补文档状态与验收证据。
+- 间歇性终端测试失败继续在同一需求列表的 `REQ-20260906-003` 追踪；通过复跑不等于已修复根因。
 
 ## 维护入口
 

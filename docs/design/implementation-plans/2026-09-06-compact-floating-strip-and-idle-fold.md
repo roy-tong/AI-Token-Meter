@@ -38,13 +38,13 @@ let metrics = FloatingStripDensity.compact; #expect(metrics.height(providerCount
 **文件与职责：** windows/src/components/FloatingStrip.tsx；windows/src/Shell.tsx；windows/src/styles.css；windows/src/settings/SettingsWindow.tsx；windows/src-tauri/src/lib.rs；windows/src-tauri/src/platform/windows/window_controller.rs；windows/src/App.test.tsx。
 **交付行为：** 原生循环控制折叠及窗口大小；前端事件汇报交互，单一 SVG 裁切覆盖肩部；Settings 保存后广播；四档 DPI 运行几何检查。
 
-- [ ] 先为上述行为增加输入/输出测试，验证功能缺失导致失败；核心断言：
+- [x] 先为上述行为增加输入/输出测试，验证功能缺失导致失败；核心断言：
 ```text
 expect(screen.getByRole('navigation')).toHaveAttribute('data-density', 'compact')
 ```
-- [ ] 实现纯值策略并连接调用方。失败路径保留已保存位置和已成功数据；持久化失败记录脱敏错误。
-- [ ] Swift 使用 `bash scripts/test.sh --filter <对应测试组>`；前端使用 `cd windows && npm test`；Rust 使用 `cd windows/src-tauri && cargo test`。断言通过后检查调用链和边界。
-- [ ] 更新开发记录和复选框，运行 `git diff --check`，提交独立 Git 检查点。
+- [x] 实现纯值策略并连接调用方。失败路径保留已保存位置和已成功数据；持久化失败记录脱敏错误。
+- [x] Swift 使用 `bash scripts/test.sh --filter <对应测试组>`；前端使用 `cd windows && npm test`；Rust 使用 `cd windows/src-tauri && cargo test`。断言通过后检查调用链和边界。
+- [x] 更新开发记录和复选框，运行 `git diff --check`，提交独立 Git 检查点：`4c05514`、`405d12b`、`fd6d548`。
 
 ## 验证口径
 
