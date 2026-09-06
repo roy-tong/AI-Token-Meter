@@ -123,6 +123,18 @@ afterEach(() => {
 })
 
 describe("Windows meter interface", () => {
+  it("pauses detail expiry while the native strip menu is open and restarts after close", async () => {
+    vi.useFakeTimers()
+    const dialog = await showDeepSeekDetail()
+    act(() => emitTauriEvent("strip-context-menu", true))
+    act(() => vi.advanceTimersByTime(20_000))
+    expect(dialog).toBeVisible()
+    act(() => emitTauriEvent("strip-context-menu", false))
+    act(() => vi.advanceTimersByTime(7_000))
+    expect(dialog).toBeVisible()
+    act(() => vi.advanceTimersByTime(2_000))
+    expect(screen.queryByRole("dialog", {name: "DeepSeek details"})).not.toBeInTheDocument()
+  })
   it("provides the exact normalized macOS silhouette for both screen edges", () => {
     const { container } = render(<MeterClipPaths />)
 

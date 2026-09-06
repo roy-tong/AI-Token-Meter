@@ -1012,10 +1012,12 @@ async fn strip_context_menu(app: tauri::AppHandle) -> Result<(), String> {
         .get_webview_window(METER_WINDOW_LABEL)
         .ok_or("Meter unavailable")?;
     state.strip_menu.store(true, Ordering::Release);
+    let _ = app.emit("strip-context-menu", true);
     let result = menu
         .popup(window.as_ref().window())
         .map_err(|_| "Menu could not open".to_owned());
     state.strip_menu.store(false, Ordering::Release);
+    let _ = app.emit("strip-context-menu", false);
     result
 }
 

@@ -151,6 +151,7 @@ function MeterSurface() {
 export function DetailSurface() {
   const [snapshot, setSnapshot] = useState<UsageSnapshot | null>(null)
   const [paused, setPaused] = useState(false)
+  const [contextMenuOpen, setContextMenuOpen] = useState(false)
   const [deepseekHistoryState, setDeepseekHistoryState] = useState<DeepSeekHistoryStatusSnapshot>({
     generation: null,
     status: "idle",
@@ -209,6 +210,9 @@ export function DetailSurface() {
     }
     subscribe<UsageSnapshot>("active-detail-changed", (event) => {
       if (!disposed) setSnapshot(event.payload)
+    })
+    subscribe<boolean>("strip-context-menu", (event) => {
+      if (!disposed) setContextMenuOpen(event.payload)
     })
     subscribe<UsageSnapshot>("snapshot-updated", (event) => {
       if (!disposed) {
@@ -272,13 +276,13 @@ export function DetailSurface() {
   useEffect(() => {
     const syncingHistory = snapshot?.providerId === "deepseek"
       && (deepseekHistoryState.status === "opening" || deepseekHistoryState.status === "active")
-    if (!snapshot || paused || syncingHistory) return
+    if (!snapshot || paused || contextMenuOpen || syncingHistory) return
     const timeout = window.setTimeout(() => {
       setSnapshot(null)
       void invoke("close_provider_detail")
     }, settings.detailAutoHideSeconds * 1_000)
     return () => window.clearTimeout(timeout)
-  }, [deepseekHistoryState.status, paused, settings.detailAutoHideSeconds, snapshot])
+  }, [contextMenuOpen, deepseekHistoryState.status, paused, settings.detailAutoHideSeconds, snapshot])
 
   if (!snapshot) return null
   return (

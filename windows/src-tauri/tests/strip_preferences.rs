@@ -30,10 +30,12 @@ fn folding_keeps_expanded_center_and_edge() {
 
 #[test]
 fn density_switch_keeps_noncentral_anchor_at_all_dpi_scales() {
-    use ai_token_meter_windows::platform::windows::window_controller::PhysicalRect;
+    use ai_token_meter_windows::platform::windows::window_controller::{
+        POSITION_REFERENCE_HEIGHT, PhysicalRect,
+    };
     for scale in [1.0, 1.25, 1.5, 2.0] {
         let work = PhysicalRect::new(0, 0, (1200.0 * scale) as u32, (800.0 * scale) as u32);
-        let reference = (356.0 * scale) as u32;
+        let reference = (POSITION_REFERENCE_HEIGHT * scale) as u32;
         let small = WindowPlacement::anchored_meter(
             work,
             PhysicalSize::new((78.0 * scale) as u32, (286.0 * scale) as u32),
@@ -43,7 +45,7 @@ fn density_switch_keeps_noncentral_anchor_at_all_dpi_scales() {
         );
         let large = WindowPlacement::anchored_meter(
             work,
-            PhysicalSize::new((108.0 * scale) as u32, reference),
+            PhysicalSize::new((108.0 * scale) as u32, (356.0 * scale) as u32),
             reference,
             Edge::Left,
             0.1,
