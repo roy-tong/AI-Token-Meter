@@ -58,6 +58,7 @@
 - macOS Release App构建通过：完整便携资源、Sparkle嵌入与严格签名校验成功；未安装覆盖当前应用，未发布Release。Widget按既有延期决定不包含在本次验证包内。
 - PR #7于2026-09-06合入main，合并提交 `c67112e`。本轮功能代码以 `fd6d548` 为最终验证头；后续仅补文档状态与验收证据。
 - 间歇性终端测试失败继续在同一需求列表的 `REQ-20260906-003` 追踪；通过复跑不等于已修复根因。
+- 合并后main再次验证：前端51项及生产构建通过。Swift首轮 `codexTimeoutIsBounded` 在用例中抛出transportFailure；原样完整复跑391+12项、文档与公开安全门禁全部通过。测试的PID文件轮询耗尽也会抛该错误，当前只有这一线索，尚不能断言生产采集器故障或根因已确定；未调整0.5秒超时或删除断言。完整失败/成功日志分别保存在本机 `/tmp/ai-meter-compact-main-tests.log`、`/tmp/ai-meter-compact-main-recheck.log`，关键结论在本段持久记录。
 
 ## 维护入口
 
