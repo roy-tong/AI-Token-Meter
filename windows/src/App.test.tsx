@@ -126,13 +126,12 @@ describe("Windows meter interface", () => {
   it("provides the exact normalized macOS silhouette for both screen edges", () => {
     const { container } = render(<MeterClipPaths />)
 
-    expect(container.querySelector("#meter-clip-right path")).toHaveAttribute(
+    expect(container.querySelector("#strip-clip-right path")).toHaveAttribute(
       "d",
-      "M 1 0.0449438 C 0.9074074 0.0646067 0.8148148 0.0758427 0.6111111 0.0786517 C 0.2685185 0.0814607 0 0.1516854 0 0.247191 L 0 0.752809 C 0 0.8483146 0.2685185 0.9185393 0.6111111 0.9213483 C 0.8148148 0.9241573 0.9074074 0.9353933 1 0.9550562 Z",
+      "M 108 16 C 98 23 88 27 66 28 C 29 29 0 54 0 88 L 0 268 C 0 302 29 327 66 328 C 88 329 98 333 108 340 Z",
     )
-    expect(container.querySelector("#meter-clip-left path")).toHaveAttribute(
-      "d",
-      "M 0 0.0449438 C 0.0925926 0.0646067 0.1851852 0.0758427 0.3888889 0.0786517 C 0.7314815 0.0814607 1 0.1516854 1 0.247191 L 1 0.752809 C 1 0.8483146 0.7314815 0.9185393 0.3888889 0.9213483 C 0.1851852 0.9241573 0.0925926 0.9353933 0 0.9550562 Z",
+    expect(container.querySelector("#strip-clip-left path")).toHaveAttribute(
+      "transform", `translate(1 0) scale(${-1/108} ${1/356})`,
     )
   })
 

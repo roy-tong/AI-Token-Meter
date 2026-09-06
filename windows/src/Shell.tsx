@@ -68,6 +68,24 @@ function MeterSurface() {
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null)
   const settings = useRuntimeSettings()
   const [folded, setFolded] = useState(false)
+  const [historyNeedsAction, setHistoryNeedsAction] = useState(false)
+  useEffect(() => {
+    let disposed = false
+    let latest: DeepSeekHistoryStatusSnapshot | null = null
+    let stop: (() => void) | undefined
+    const accept = (value: unknown) => {
+      if (disposed || !isDeepSeekHistoryStatusSnapshot(value)) return
+      if (latest?.generation != null && (value.generation == null || value.generation < latest.generation)) return
+      if (latest && latest.generation === value.generation && historyStatusRank(value.status) < historyStatusRank(latest.status)) return
+      latest = value
+      setHistoryNeedsAction(value.status === "opening" || value.status === "active")
+    }
+    void listen<unknown>("deepseek-history-status", event => accept(event.payload)).then(unlisten => {
+      if (disposed) unlisten(); else stop = unlisten
+    }).catch(() => {})
+    void invoke<unknown>("deepseek_history_status").then(accept).catch(() => {})
+    return () => { disposed = true; stop?.() }
+  }, [])
   useEffect(() => {
     let disposed = false
     let stop: (() => void) | undefined
@@ -111,6 +129,7 @@ function MeterSurface() {
       <FloatingStrip
         preferences={settings.stripPreferences}
         folded={folded}
+        historyNeedsAction={historyNeedsAction}
         onInteraction={(kind, active) => { void invoke("strip_interaction", {kind, active}) }}
         onContextMenu={() => { void invoke("strip_context_menu") }}
         activeProvider={activeProvider}

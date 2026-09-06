@@ -7,10 +7,11 @@ import { ProviderLogo } from "./ProviderLogo"
 type UsageRingProps = {
   snapshot: UsageSnapshot
   selected?: boolean
+  needsAction?: boolean
   onActivate: () => void
 }
 
-export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingProps) {
+export function UsageRing({ snapshot, selected = false, needsAction = false, onActivate }: UsageRingProps) {
   const contract = providerContract.providers.find((provider) => provider.id === snapshot.providerId)
   const hasProgress = snapshot.usedRatio != null && ["fresh", "cached", "refreshing"].includes(snapshot.status)
   const percent = hasProgress ? Math.min(Math.max(snapshot.usedRatio! * 100, 0), 100) : null
@@ -19,7 +20,7 @@ export function UsageRing({ snapshot, selected = false, onActivate }: UsageRingP
     "--usage-progress": percent == null ? "0deg" : `${percent * 3.6}deg`,
   } as CSSProperties
   const operation = snapshot.status === "refreshing" ? "refreshing"
-    : ["authenticationRequired", "setupRequired", "notInstalled"].includes(snapshot.status)
+    : needsAction || ["authenticationRequired", "setupRequired", "notInstalled"].includes(snapshot.status)
       || ["Cached · sign in required", "Cached · setup required"].includes(snapshot.statusMessage ?? "") ? "waiting" : "idle"
 
   return (

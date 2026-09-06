@@ -255,8 +255,9 @@ final class AppModel {
     func operationState(for provider: UsageProvider) -> ProviderOperationState {
         let status = snapshots.first { $0.provider == provider }?.collectionStatus ?? .unavailable
         let needsAction = serviceAccounts[provider].map { [.signInRequired, .notInstalled].contains($0.connectionState) } ?? false
+        let historyNeedsAction = provider == .deepSeek && deepSeekWebSession.webView.url != nil && deepSeekWebSession.state == .signedOut
         return .resolve(status: status, refreshing: refreshingProviders.contains(provider),
-                        needsAction: needsAction || signInTokens[provider] != nil || providersRequiringAction.contains(provider))
+                        needsAction: needsAction || historyNeedsAction || signInTokens[provider] != nil || providersRequiringAction.contains(provider))
     }
 
     func setFloatingStripVisible(_ isVisible: Bool) {

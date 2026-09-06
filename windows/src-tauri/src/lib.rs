@@ -763,7 +763,7 @@ async fn service_account_status(
                 .refresh_coordinator
                 .clear_authentication_backoff(provider_id);
         }
-        return Ok(status);
+        Ok(status)
     }
     #[cfg(not(windows))]
     {

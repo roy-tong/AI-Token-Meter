@@ -28,6 +28,10 @@
 
 ## 验证记录
 
+![Compact与Comfortable浏览器实际渲染，使用演示数据](../assets/screenshots/compact-strip-comparison.png)
+
+图中左两项为Compact，右两项为Comfortable；每档分别展示左右贴边。此图是Chrome浏览器渲染，不是Windows桌面截图。
+
 - TDD 已记录缺失API/实际断言红灯，再验证绿灯：偏好兼容、折叠时钟、中心定位、取消不惩罚、重启限流。
 - macOS本机全量回归：390项主测试 + 12项PTY测试通过；后续共享fixture新增测试在最终提交前重跑。
 - Windows前端：47项测试与生产构建通过；共享fixture新增测试在最终提交前重跑。
@@ -43,6 +47,8 @@
 ## Git检查点
 
 - `9c30b45`：macOS紧凑偏好、可见项尺寸、折叠状态机和设置初次接入。
+- `4c05514`：双平台交互、刷新退避、独立审查修复、共享fixture和文档检查点。
+- PR [#7](https://github.com/sljzdotcom/AI-Token-Meter/pull/7)：macOS首次CI `34032620030`通过；Windows首次CI `34032619977`通过前端/浏览器/构建/格式，在Windows专属分支的Clippy冗余return门禁失败，已移除并重跑。
 - 后续跨平台、退避、审查和文档提交以当前分支历史为准；CI验收后补充固定提交引用。
 
 ## 维护入口
