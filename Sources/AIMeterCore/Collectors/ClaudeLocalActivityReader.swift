@@ -14,11 +14,6 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
     static let maximumTotalBytes = 512 * 1_024 * 1_024
     static let maximumFileCount = 4_096
     static let maximumScanDuration: TimeInterval = 10
-    /// How many recent `message.id`s are remembered per file for duplicate
-    /// suppression. Records of one message are written consecutively, so a
-    /// small FIFO is sufficient and keeps memory bounded on huge transcripts.
-    static let maximumRememberedMessageIDs = 512
-
     private let projectsDirectoryURL: URL
     private let calendar: Calendar
 
@@ -76,7 +71,10 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
         for fileURL in fileURLs {
             guard !Task.isCancelled, Date() < scanDeadline else { break }
             let isSubagent = fileURL.pathComponents.contains("subagents")
-            forEachEntry(in: fileURL, deadline: scanDeadline) { entry in
+            // Store only decoded metadata/usage, never transcript content. The
+            // existing file-size and scan-deadline bounds still apply.
+            var snapshots: [String: ClaudeLogEntry] = [:]
+            func accumulate(_ entry: ClaudeLogEntry) {
                 guard let timestamp = timestampParser.date(from: entry.timestamp),
                       timestamp >= windowStart,
                       timestamp < windowEnd,
@@ -102,6 +100,23 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
                         .addingClamped(components.total)
                 }
             }
+            forEachEntry(in: fileURL, deadline: scanDeadline) { entry in
+                guard let message = entry.message, let usage = message.usage,
+                      usage.nonnegativeComponents != nil else { return }
+                guard let id = message.id, !id.isEmpty else { accumulate(entry); return }
+                // Length-delimited identity avoids separator collisions.
+                let key = [entry.sessionID ?? "", entry.requestId ?? "", id]
+                    .map { "\($0.utf8.count):\($0)" }.joined()
+                if let old = snapshots[key],
+                   (old.message?.usage?.outputTokens ?? 0) > (usage.outputTokens ?? 0) {
+                    return
+                }
+                // Claude output is cumulative within a request; retain the
+                // whole greatest-output snapshot (later wins ties), not maxima
+                // assembled independently from different usage records.
+                snapshots[key] = entry
+            }
+            for entry in snapshots.values { accumulate(entry) }
         }
 
         let days = (0..<boundedDayCount).compactMap { offset -> ClaudeDailyActivity? in
@@ -207,8 +222,6 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
         let decoder = JSONDecoder()
         var line = Data()
         var discardingOversizedLine = false
-        var seenMessageIDs = Set<String>()
-        var recentMessageIDs: [String] = []
 
         while !Task.isCancelled, Date() < deadline {
             guard let chunk = try? handle.read(upToCount: 64 * 1_024),
@@ -219,12 +232,7 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
                 if byte == 0x0A {
                     if !discardingOversizedLine,
                        !line.isEmpty,
-                       let entry = try? decoder.decode(ClaudeLogEntry.self, from: line),
-                       !isDuplicateMessageID(
-                           entry.message?.id,
-                           seenMessageIDs: &seenMessageIDs,
-                           recentMessageIDs: &recentMessageIDs
-                       ) {
+                       let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
                         body(entry)
                     }
                     line.removeAll(keepingCapacity: true)
@@ -244,43 +252,14 @@ struct ClaudeLocalActivityReader: ClaudeLocalActivityReading, Sendable {
            Date() < deadline,
            !discardingOversizedLine,
            !line.isEmpty,
-           let entry = try? decoder.decode(ClaudeLogEntry.self, from: line),
-           !isDuplicateMessageID(
-               entry.message?.id,
-               seenMessageIDs: &seenMessageIDs,
-               recentMessageIDs: &recentMessageIDs
-           ) {
+           let entry = try? decoder.decode(ClaudeLogEntry.self, from: line) {
             body(entry)
         }
-    }
-
-    /// Claude Code writes one JSONL record per content block, and every record
-    /// of the same assistant message repeats the same `message.id` with an
-    /// identical copy of that message's `usage`. Accumulating per record
-    /// multiplies a turn's tokens by its block count, so later records of an
-    /// already-seen `message.id` are suppressed. Entries without an id are
-    /// always kept (each counts as its own turn).
-    private static func isDuplicateMessageID(
-        _ messageID: String?,
-        seenMessageIDs: inout Set<String>,
-        recentMessageIDs: inout [String]
-    ) -> Bool {
-        guard let messageID, !messageID.isEmpty else {
-            return false
-        }
-        if seenMessageIDs.contains(messageID) {
-            return true
-        }
-        seenMessageIDs.insert(messageID)
-        recentMessageIDs.append(messageID)
-        if recentMessageIDs.count > maximumRememberedMessageIDs {
-            seenMessageIDs.remove(recentMessageIDs.removeFirst())
-        }
-        return false
     }
 }
 
 private struct ClaudeLogEntry: Decodable {
+    let requestId: String?
     let timestamp: String
     let sessionID: String?
     let message: Message?
@@ -289,11 +268,12 @@ private struct ClaudeLogEntry: Decodable {
         case timestamp
         case sessionID = "sessionId"
         case legacySessionID = "session_id"
-        case message
+        case message, requestId
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        requestId = try values.decodeIfPresent(String.self, forKey: .requestId)
         timestamp = try values.decode(String.self, forKey: .timestamp)
         sessionID = try values.decodeIfPresent(String.self, forKey: .sessionID)
             ?? values.decodeIfPresent(String.self, forKey: .legacySessionID)
